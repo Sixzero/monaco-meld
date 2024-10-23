@@ -1,6 +1,39 @@
 import { originalText, modifiedText } from "./samples.js";
 import { DiffOperation } from "./diffOperations.js";
 
+function getLanguageFromPath(filePath) {
+  if (!filePath) return 'plaintext';
+  const ext = filePath.split('.').pop().toLowerCase();
+  const langMap = {
+    js: 'javascript',
+    jsx: 'javascript',
+    ts: 'typescript',
+    tsx: 'typescript',
+    py: 'python',
+    rb: 'ruby',
+    java: 'java',
+    cpp: 'cpp',
+    c: 'cpp',
+    h: 'cpp',
+    hpp: 'cpp',
+    cs: 'csharp',
+    go: 'go',
+    rs: 'rust',
+    php: 'php',
+    html: 'html',
+    css: 'css',
+    json: 'json',
+    md: 'markdown',
+    xml: 'xml',
+    yaml: 'yaml',
+    yml: 'yaml',
+    sh: 'shell',
+    bash: 'shell',
+    sql: 'sql'
+  };
+  return langMap[ext] || 'plaintext';
+}
+
 window.addEventListener("DOMContentLoaded", () => {
   console.log("Loading Monaco...");
 
@@ -38,16 +71,25 @@ window.addEventListener("DOMContentLoaded", () => {
           if (diffContents.leftContent !== null) leftContent = diffContents.leftContent;
           if (diffContents.rightContent !== null) rightContent = diffContents.rightContent;
         }
-        
+
         // Update window title with filenames
         const leftName = diffContents.leftPath ? diffContents.leftPath : 'untitled';
         const rightName = diffContents.rightPath ? diffContents.rightPath : 'untitled';
         document.title = `MonacoMeld - ${leftName} ↔ ${rightName}`;
+        
+        // Get language from file paths
+        const language = getLanguageFromPath(diffContents.leftPath) || getLanguageFromPath(diffContents.rightPath);
+        originalModel = monaco.editor.createModel(leftContent, language);
+        modifiedModel = monaco.editor.createModel(rightContent, language);
       }
       initialContent = await window.electronAPI.getOriginalContent();
     } catch (err) {
       console.error("Error getting diff contents:", err);
     }
+
+    // Enable undo support
+    originalModel.setEOL(monaco.editor.EndOfLineSequence.LF);
+    originalModel.pushStackElement();
 
     const diffEditor = monaco.editor.createDiffEditor(
       document.getElementById("container"),
@@ -62,12 +104,9 @@ window.addEventListener("DOMContentLoaded", () => {
       }
     );
 
-    const originalModel = monaco.editor.createModel(leftContent, "javascript");
-    const modifiedModel = monaco.editor.createModel(rightContent, "javascript");
-
-    // Enable undo support
-    originalModel.setEOL(monaco.editor.EndOfLineSequence.LF);
-    originalModel.pushStackElement();
+    // Remove these lines as we create models earlier
+    // const originalModel = monaco.editor.createModel(leftContent, "javascript");
+    // const modifiedModel = monaco.editor.createModel(rightContent, "javascript");
 
     diffEditor.setModel({
       original: originalModel,
