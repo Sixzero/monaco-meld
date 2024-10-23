@@ -1,0 +1,38 @@
+{
+  "name": "fastdiff",
+  "version": "1.0.0",
+  "main": "src/main.js",
+  "license": "MIT",
+  "author": {
+    "name": "SixZero",
+    "email": "havliktomi@gmail.com"
+  },
+  "homepage": "https://github.com/SixZero/fastdiff",
+  "scripts": {
+    "start": "electron .",
+    "start:example": "electron . ./examples/file1.js ./examples/file2.js",
+    "start:example:eof": "bash -c 'electron . ./examples/file1.js <(cat <<\"EOF\"\nnew content here\nwith multiple lines\nEOF\n)'",
+    "start:test": "bash -c 'electron . ./examples/file1.js <(echo \"modified content\")'"
+  },
+  "build": {
+    "appId": "com.fastdiff.app",
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "category": "Development",
+      "maintainer": "SixZero <havliktomi@gmail.com>",
+      "icon": "build/icon.png"
+    },
+    "files": [
+      "src/**/*",
+      "public/**/*",
+      "node_modules/**/*"
+    ]
+  },
+  "devDependencies": {
+    "electron": "^33.0.2",
+    "electron-builder": "^24.13.3"
+  },
+  "dependencies": {
+    "monaco-editor": "^0.52.0"
+  }
+}

@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' file:; style-src 'unsafe-inline' file:; font-src file:; worker-src blob: file:; img-src 'self' data: file:">
+    <title>FastDiff</title>
+    <style>
+      body { margin: 0; }
+      #container { 
+        width: 100vw;
+        height: 100vh;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="container"></div>
+    <script src="../node_modules/monaco-editor/min/vs/loader.js"></script>
+    <script src="../src/renderer/renderer.js" type="module"></script>
+  </body>
+</html>
