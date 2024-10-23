@@ -1,12 +1,14 @@
-# monaco-meld a tool for fast merging
+# monaco-meld 
 
-A lightweight Electron based app for fast diffing 2 files.
+A drop in replacement for meld with monaco diff. A lightweight Electron based app for fast diffing 2 files.
 
-# Features
+## Features
 
-- fast start.
+- Hopefully lightweight, so fast start
+- Arrow based navigation
+- Syntax highlighting with Monaco
 
-# Requirements
+## Requirements
 
 Some might need to run .appImages on Ubuntu 24.04.
 
@@ -14,7 +16,7 @@ Some might need to run .appImages on Ubuntu 24.04.
 sudo apt install libfuse2
 ```
 
-# hotfix
+## Troubleshooting
 
 As mentioned in the reference documentation, the problem is that Ubuntu 24.04 implemented new restrictions for AppImage apps, which restricts the use of sandboxes.
 
