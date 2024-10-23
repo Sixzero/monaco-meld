@@ -39,12 +39,13 @@ function parseProcessInput() {
   
   // If no arguments provided, return null contents
   if (effectiveArgs.length === 0) {
-    return { leftContent: null, rightContent: null };
+    return { leftContent: null, rightContent: null, leftPath: null, rightPath: null };
   }
   
-  let leftFile = '';  // Default to empty string if file specified but doesn't exist
+  let leftFile = '';  
   let rightContent = null;
-  originalFilePath = effectiveArgs[0];  // Store the file path even if file doesn't exist yet
+  let rightPath = null;
+  originalFilePath = effectiveArgs[0]; 
 
   // First check for file argument - but don't error if file doesn't exist
   if (fs.existsSync(effectiveArgs[0])) {
@@ -61,18 +62,25 @@ function parseProcessInput() {
   if (process.stdin.isTTY === false) {
     try {
       rightContent = fs.readFileSync(0, 'utf-8');
+      rightPath = '<stdin>';
     } catch (err) {
       console.error('Error reading from stdin:', err);
     }
   } else if (effectiveArgs[1]) {
     try {
       rightContent = fs.readFileSync(effectiveArgs[1], 'utf-8');
+      rightPath = effectiveArgs[1];
     } catch (err) {
       console.error('Error reading second file:', err);
     }
   }
   
-  return { leftContent: leftFile, rightContent };
+  return { 
+    leftContent: leftFile, 
+    rightContent,
+    leftPath: originalFilePath,
+    rightPath
+  };
 }
 
 function createWindow() {
@@ -95,7 +103,7 @@ function createWindow() {
     console.error('Error reading input files:', err);
   }
 
-  mainWindow.loadFile('src/public/index.html');
+  mainWindow.loadFile('public/index.html');
   mainWindow.on('close', handleWindowClose);
 }
 

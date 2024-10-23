@@ -6,7 +6,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   require.config({
     paths: {
-      vs: "../../node_modules/monaco-editor/min/vs", // Two levels up from src/renderer
+      vs: "../node_modules/monaco-editor/min/vs", // Two levels up from src/renderer
     },
   });
 
@@ -19,7 +19,6 @@ window.addEventListener("DOMContentLoaded", () => {
   require(["vs/editor/editor.main"], async function () {
     console.log("Monaco diff editor loaded");
 
-    // Get contents from command line if available
     let leftContent = ""; // Default to empty string
     let rightContent = ""; // Default to empty string
     let initialContent = ""; // Add proper declaration here
@@ -36,22 +35,19 @@ window.addEventListener("DOMContentLoaded", () => {
           rightContent = modifiedText;
         } else {
           // Otherwise use provided content (even if empty string)
-          if (diffContents.leftContent !== null)
-            leftContent = diffContents.leftContent;
-          if (diffContents.rightContent !== null)
-            rightContent = diffContents.rightContent;
+          if (diffContents.leftContent !== null) leftContent = diffContents.leftContent;
+          if (diffContents.rightContent !== null) rightContent = diffContents.rightContent;
         }
+        
+        // Update window title with filenames
+        const leftName = diffContents.leftPath ? diffContents.leftPath : 'untitled';
+        const rightName = diffContents.rightPath ? diffContents.rightPath : 'untitled';
+        document.title = `MonacoMeld - ${leftName} ↔ ${rightName}`;
       }
       initialContent = await window.electronAPI.getOriginalContent();
     } catch (err) {
       console.error("Error getting diff contents:", err);
     }
-
-    monaco.editor.defineTheme("fastdiff-dark", {
-      base: "vs-dark",
-      inherit: true,
-      rules: [],
-    });
 
     const diffEditor = monaco.editor.createDiffEditor(
       document.getElementById("container"),
