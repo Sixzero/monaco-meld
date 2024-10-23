@@ -95,7 +95,7 @@ function createWindow() {
     console.error('Error reading input files:', err);
   }
 
-  mainWindow.loadFile('public/index.html');
+  mainWindow.loadFile('src/public/index.html');
   mainWindow.on('close', handleWindowClose);
 }
 
