@@ -26,8 +26,20 @@
     "files": [
       "src/**/*",
       "public/**/*",
-      "node_modules/**/*"
-    ]
+      "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
+      "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
+      "!**/node_modules/*.d.ts",
+      "!**/node_modules/.bin",
+      {
+        "from": "node_modules/monaco-editor/min",
+        "to": "node_modules/monaco-editor/min",
+        "filter": ["vs/**/*"]
+      }
+    ],
+    "extraResources": [],
+    "asar": true,
+    "asarUnpack": [],
+    "compression": "maximum"
   },
   "devDependencies": {
     "electron": "^33.0.2",
