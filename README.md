@@ -2,7 +2,7 @@
 
 A drop in replacement for meld with monaco diff. A lightweight Electron based app for fast diffing 2 files.
 
-![Monaco Meld Screenshot](public/monacomeld_demo.webm)
+![Monaco Meld Screenshot](https://github.com/user-attachments/assets/fca6799d-34ed-4404-bc54-74e04c1c574b)
 
 ## Features
 
