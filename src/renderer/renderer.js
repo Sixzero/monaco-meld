@@ -1,4 +1,4 @@
-import { originalText, modifiedText } from "./samples.js";
+import { sampleText1, sampleText2 } from "./samples.js";
 import { DiffOperation } from "./diffOperations.js";
 
 function getLanguageFromPath(filePath) {
@@ -7,6 +7,7 @@ function getLanguageFromPath(filePath) {
   const langMap = {
     js: 'javascript',
     jsx: 'javascript',
+    jl: 'julia',
     ts: 'typescript',
     tsx: 'typescript',
     py: 'python',
@@ -55,36 +56,40 @@ window.addEventListener("DOMContentLoaded", () => {
     let leftContent = ""; // Default to empty string
     let rightContent = ""; // Default to empty string
     let initialContent = ""; // Add proper declaration here
+    let originalModel, modifiedModel; // Declare models at this scope
 
     try {
       const diffContents = await window.electronAPI.getDiffContents();
-      if (diffContents) {
-        // If diffContents exists but content is null, use samples
-        if (
-          diffContents.leftContent === null &&
-          diffContents.rightContent === null
-        ) {
-          leftContent = originalText;
-          rightContent = modifiedText;
-        } else {
-          // Otherwise use provided content (even if empty string)
-          if (diffContents.leftContent !== null) leftContent = diffContents.leftContent;
-          if (diffContents.rightContent !== null) rightContent = diffContents.rightContent;
-        }
+      // If no diffContents or both contents null, use samples
+      if (!diffContents || (diffContents.leftContent === null && diffContents.rightContent === null)) {
+        leftContent = sampleText1;
+        rightContent = sampleText2;
+        originalModel = monaco.editor.createModel(leftContent, 'javascript');
+        modifiedModel = monaco.editor.createModel(rightContent, 'javascript');
+      } else {
+        // Otherwise use provided content (even if empty string)
+        if (diffContents.leftContent !== null) leftContent = diffContents.leftContent;
+        if (diffContents.rightContent !== null) rightContent = diffContents.rightContent;
+
+        // Get language from file paths
+        const language = getLanguageFromPath(diffContents.leftPath) || getLanguageFromPath(diffContents.rightPath);
+        originalModel = monaco.editor.createModel(leftContent, language);
+        modifiedModel = monaco.editor.createModel(rightContent, language);
 
         // Update window title with filenames
         const leftName = diffContents.leftPath ? diffContents.leftPath : 'untitled';
         const rightName = diffContents.rightPath ? diffContents.rightPath : 'untitled';
         document.title = `MonacoMeld - ${leftName} ↔ ${rightName}`;
-        
-        // Get language from file paths
-        const language = getLanguageFromPath(diffContents.leftPath) || getLanguageFromPath(diffContents.rightPath);
-        originalModel = monaco.editor.createModel(leftContent, language);
-        modifiedModel = monaco.editor.createModel(rightContent, language);
       }
+      
       initialContent = await window.electronAPI.getOriginalContent();
     } catch (err) {
       console.error("Error getting diff contents:", err);
+      // Fallback to samples if error
+      leftContent = sampleText1;
+      rightContent = sampleText2;
+      originalModel = monaco.editor.createModel(leftContent, 'javascript');
+      modifiedModel = monaco.editor.createModel(rightContent, 'javascript');
     }
 
     // Enable undo support
@@ -103,10 +108,6 @@ window.addEventListener("DOMContentLoaded", () => {
         ignoreTrimWhitespace: false,
       }
     );
-
-    // Remove these lines as we create models earlier
-    // const originalModel = monaco.editor.createModel(leftContent, "javascript");
-    // const modifiedModel = monaco.editor.createModel(rightContent, "javascript");
 
     diffEditor.setModel({
       original: originalModel,

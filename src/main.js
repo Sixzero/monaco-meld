@@ -8,6 +8,8 @@ let diffContents = null;
 let originalFilePath = null;
 let isQuitting = false;  // Add flag to track if we're actually quitting
 
+app.commandLine.appendSwitch('log-level', '3');
+
 // Create custom console logger that sends to renderer
 function createCustomLogger() {
   const originalConsole = { ...console };
@@ -32,22 +34,20 @@ console = createCustomLogger();
 
 function parseProcessInput() {
   const args = process.argv;
-  const isAppImage = args[0].includes('AppImage');
   
-  // For AppImage take last 2, for normal execution take from index 2
-  const effectiveArgs = isAppImage ? args.slice(-2) : args.slice(2);
+  // Get the effective arguments, skipping the executable path
+  const effectiveArgs = args[0].includes('monacomeld') ? args.slice(1) : args.slice(2);
   
-  // If no arguments provided, return null contents
   if (effectiveArgs.length === 0) {
     return { leftContent: null, rightContent: null, leftPath: null, rightPath: null };
   }
   
-  let leftFile = '';  
+  let leftFile = '';
   let rightContent = null;
   let rightPath = null;
-  originalFilePath = effectiveArgs[0]; 
+  originalFilePath = effectiveArgs[0];
 
-  // First check for file argument - but don't error if file doesn't exist
+  // Read left file
   if (fs.existsSync(effectiveArgs[0])) {
     try {
       leftFile = fs.readFileSync(effectiveArgs[0], 'utf-8');
@@ -58,20 +58,21 @@ function parseProcessInput() {
     console.log('Left file does not exist yet, starting with empty content');
   }
 
-  // Then check process substitution or second file
-  if (process.stdin.isTTY === false) {
+  // Handle the second argument
+  if (effectiveArgs[1]) {
+    rightPath = effectiveArgs[1];
     try {
-      rightContent = fs.readFileSync(0, 'utf-8');
-      rightPath = '<stdin>';
+      // Handle stdin input
+      if (rightPath === '-' || !process.stdin.isTTY) {
+        const stdinBuffer = fs.readFileSync(0); // fd 0 is stdin
+        rightContent = stdinBuffer.toString();
+        rightPath = '<stdin>';
+      } else {
+        // Regular file read
+        rightContent = fs.readFileSync(rightPath, 'utf-8');
+      }
     } catch (err) {
-      console.error('Error reading from stdin:', err);
-    }
-  } else if (effectiveArgs[1]) {
-    try {
-      rightContent = fs.readFileSync(effectiveArgs[1], 'utf-8');
-      rightPath = effectiveArgs[1];
-    } catch (err) {
-      console.error('Error reading second file:', err);
+      console.error('Error reading content:', err);
     }
   }
   

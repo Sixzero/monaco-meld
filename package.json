@@ -13,33 +13,49 @@
     "start:example": "electron . ./examples/file1.js ./examples/file2.js",
     "start:example:eof": "bash -c 'electron . ./examples/file1.js <(cat <<\"EOF\"\nnew content here\nwith multiple lines\nEOF\n)'",
     "start:test": "bash -c 'electron . ./examples/file1.js <(echo \"modified content\")'",
+    "start:debug": "electron .",
     "build": "electron-builder build"
   },
   "build": {
     "appId": "com.monacomeld.app",
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": ["AppImage"],
       "category": "Development",
       "maintainer": "SixZero <havliktomi@gmail.com>",
-      "icon": "public/icon.png"
+      "icon": "public/icon.png",
+      "artifactName": "${productName}-${version}.${ext}"
     },
     "files": [
       "src/**/*",
       "public/**/*",
-      "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
-      "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
-      "!**/node_modules/*.d.ts",
+      "!**/node_modules/*/{.bin,benchmark,doc,docs,example,examples,man,CHANGELOG*,README*,HISTORY*,LICENSE*,CONTRIBUTING*,CHANGELOG*,FAQ*}",
+      "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples,*.d.ts}",
       "!**/node_modules/.bin",
+      "!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj,ts,map}",
+      "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,__pycache__,thumbs.db,.gitignore,.gitattributes,.editorconfig,.idea,appveyor.yml,.travis.yml,circle.yml,.coveralls.yml}",
       {
-        "from": "node_modules/monaco-editor/min",
-        "to": "node_modules/monaco-editor/min",
-        "filter": ["vs/**/*"]
+        "from": "node_modules/monaco-editor/min/vs",
+        "to": "node_modules/monaco-editor/min/vs",
+        "filter": [
+          "editor/**/*",
+          "base/**/*",
+          "basic-languages/javascript/**/*",
+          "language/typescript/**/*",
+          "language/json/**/*"
+        ]
       }
     ],
-    "extraResources": [],
+    "extraResources": [{
+      "from": "node_modules/electron/dist/locales",
+      "filter": ["en-US.pak"]
+    }],
     "asar": true,
-    "asarUnpack": [],
-    "compression": "maximum"
+    "asarUnpack": [
+      "node_modules/monaco-editor/min/vs/**/*"
+    ],
+    "compression": "normal",
+    "removePackageScripts": true,
+    "removePackageKeywords": true
   },
   "devDependencies": {
     "electron": "^33.0.2",

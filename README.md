@@ -15,25 +15,23 @@ A drop in replacement for meld with monaco diff. A lightweight Electron based ap
 
 Basic file comparison:
 ```sh
-./monaco-meld-1.0.0.AppImage file1.js file2.js
+./monacomeld-1.0.0.AppImage file1.js file2.js
 ```
 
 Compare file with stdin content:
 ```sh
-./monaco-meld-1.0.0.AppImage file1.js <(echo "modified content")
+echo "modified content" | ./monacomeld-1.0.0.AppImage file1.js -
 ```
 
 Compare with multiline content:
 ```sh
-./monaco-meld-1.0.0.AppImage file1.js <(cat <<EOF
+./monacomeld-1.0.0.AppImage file1.js - <<'EOF'
 new content here
 with multiple lines
 EOF
-)
 ```
 
 ## Building
-Processing diff with AI for higher quality...
 
 ```sh
 npm install
@@ -61,5 +59,9 @@ sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=1
 # to activate restrictions
 ```
+
+## Known Issues
+
+- You might see a harmless warning about `mime.cache` in the console. This is a known Electron/Chromium issue on some Linux systems and doesn't affect functionality.
 
 

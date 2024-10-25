@@ -22,7 +22,8 @@ export class DiffOperation {
   }
 
   getModifiedText(change) {
-    return this.modifiedModel.getValueInRange({
+    const is_empty_modified_text = change.modifiedEndLineNumber === 0;
+    return is_empty_modified_text ? "" : this.modifiedModel.getValueInRange({
       startLineNumber: change.modifiedStartLineNumber,
       startColumn: 1,
       endLineNumber: change.modifiedEndLineNumber,
@@ -48,6 +49,7 @@ export class DiffOperation {
     }
 
     const isInsert = change.originalEndLineNumber === 0;
+    const isDelete = change.modifiedEndLineNumber === 0;
     const isInsertAtStart = isInsert && change.originalStartLineNumber === 0;
 
     const range = isInsertAtStart ? {
@@ -60,6 +62,11 @@ export class DiffOperation {
       startColumn: this.originalModel.getLineMaxColumn(change.originalStartLineNumber),
       endLineNumber: change.originalStartLineNumber,
       endColumn: this.originalModel.getLineMaxColumn(change.originalStartLineNumber)
+    } : isDelete ? { 
+      startLineNumber: change.originalStartLineNumber,
+      startColumn: 1,
+      endLineNumber: change.originalEndLineNumber + 1,
+      endColumn: 1 
     } : {
       startLineNumber: change.originalStartLineNumber,
       startColumn: 1,
@@ -68,7 +75,7 @@ export class DiffOperation {
     };
 
     // For inserts, ensure newlines on both ends
-    const text = isInsert ? 
+    const text = isDelete ? null : isInsert ? 
       (isInsertAtStart ? modifiedText + '\n' : '\n' + modifiedText) : 
       modifiedText;
 
