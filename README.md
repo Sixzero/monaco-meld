@@ -2,14 +2,9 @@
 
 A drop in replacement for meld with monaco diff. A lightweight Electron based app for fast diffing 2 files.
 
-<!-- VIDEO START -->
 <p align="center">
-  <video style="max-width: 100%; height: auto;" autoplay loop muted playsinline>
-    <source src="public/monacomeld_demo.mkv" type="video/x-matroska">
-    <img src="https://github.com/user-attachments/assets/fca6799d-34ed-4404-bc54-74e04c1c574b" alt="Monaco Meld Demo">
-  </video>
+  <img src="public/monacomeld_demo.gif" alt="Monaco Meld Demo"/>
 </p>
-<!-- VIDEO END -->
 
 ## Features
 
