@@ -14,7 +14,8 @@
     "start:example:eof": "bash -c 'electron . ./examples/file1.js <(cat <<\"EOF\"\nnew content here\nwith multiple lines\nEOF\n)'",
     "start:test": "bash -c 'electron . ./examples/file1.js <(echo \"modified content\")'",
     "start:debug": "electron .",
-    "build": "electron-builder build"
+    "build": "electron-builder build",
+    "start:web": "PORT=3000 electron . --web"
   },
   "build": {
     "appId": "com.monacomeld.app",

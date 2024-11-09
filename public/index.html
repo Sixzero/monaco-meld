@@ -2,10 +2,11 @@
 <html>
   <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' file:; style-src 'unsafe-inline' file:; font-src file:; worker-src blob: file:; img-src 'self' data: file:">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-eval' 'unsafe-inline' http://localhost:* blob:; script-src 'self' 'unsafe-eval' 'unsafe-inline' blob:; style-src 'unsafe-inline' 'self'; worker-src blob:; connect-src 'self' http://localhost:* ws://localhost:*">
     <title>Monaco Meld</title>
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
     <style>
-      body { 
+      html, body { 
         margin: 0; 
         background-color: #1e1e1e;  /* Monaco's vs-dark theme background color */
       }
@@ -18,6 +19,6 @@
   <body>
     <div id="container"></div>
     <script src="../node_modules/monaco-editor/min/vs/loader.js"></script>
-    <script src="../src/renderer/renderer.js" type="module"></script>
+    <script type="module" src="../src/renderer/renderer.js"></script>
   </body>
 </html>

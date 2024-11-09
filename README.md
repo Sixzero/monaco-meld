@@ -68,4 +68,26 @@ sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=1
 
 - You might see a harmless warning about `mime.cache` in the console. This is a known Electron/Chromium issue on some Linux systems and doesn't affect functionality.
 
+## Remote Usage Options
 
+### Option 1: Web Mode (Better Performance)
+
+1. Start the app in web mode on the remote server:
+```sh
+./monacomeld-1.0.0.AppImage --web
+```
+
+2. Set up SSH port forwarding from your local machine:
+```sh
+ssh -L 3000:localhost:3000 user@remote-host
+```
+
+3. Open in your local browser:
+```
+http://localhost:3000
+```
+
+You can specify a different port with the PORT environment variable:
+```sh
+PORT=8080 ./monacomeld-1.0.0.AppImage --web
+```

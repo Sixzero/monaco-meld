@@ -1,5 +1,23 @@
 import { sampleText1, sampleText2 } from "./samples.js";
-import { DiffOperation } from "./diffOperations.js";
+import { setupEditorCommands } from "./editor/commands.js";
+import { showStatusNotification } from "./ui/notifications.js";
+
+const isWeb = !window.electronAPI;
+const basePath = isWeb ? '' : '..';
+
+// Configure Monaco loader first
+require.config({
+  paths: {
+    'vs': `${basePath}/node_modules/monaco-editor/min/vs`
+  }
+});
+
+// Setup Monaco environment before loading
+window.MonacoEnvironment = {
+  getWorkerUrl: function(moduleId, label) {
+    return `${basePath}/public/monaco-editor-worker-loader-proxy.js`;
+  }
+};
 
 function getLanguageFromPath(filePath) {
   if (!filePath) return 'plaintext';
@@ -35,174 +53,187 @@ function getLanguageFromPath(filePath) {
   return langMap[ext] || 'plaintext';
 }
 
-window.addEventListener("DOMContentLoaded", () => {
-  console.log("Loading Monaco...");
+// Simplified save function
+async function saveContent(content, editor) {
+  try {
+    const result = !isWeb ? 
+      await window.electronAPI.saveContent(content) :
+      await fetch('http://localhost:3000/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content })
+      }).then(r => r.ok);
+    
+    if (!result) throw new Error('Failed to save');
+    
+    if (editor) {
+      showStatusNotification('File saved successfully!', 'success');
+    }
+    
+    return true;
+  } catch (err) {
+    console.error('Error saving:', err);
+    if (editor) {
+      showStatusNotification('Failed to save file!', 'error');
+    }
+    return false;
+  }
+}
 
-  require.config({
-    paths: {
-      vs: "../node_modules/monaco-editor/min/vs", // Two levels up from src/renderer
-    },
-  });
-
-  window.MonacoEnvironment = {
-    getWorkerUrl: function (moduleId, label) {
-      return "./monaco-editor-worker-loader-proxy.js"; // Relative to public folder
-    },
+// Replace polling with SSE
+function setupEventSource() {
+  if (!isWeb) return; // Only use SSE in web mode
+  
+  const evtSource = new EventSource('http://localhost:3000/events');
+  
+  evtSource.onmessage = (event) => {
+    try {
+      const newDiffContents = JSON.parse(event.data);
+      
+      // Update models if we have new content
+      if (newDiffContents?.leftContent !== null || newDiffContents?.rightContent !== null) {
+        window.originalModel.setValue(newDiffContents?.leftContent ?? '');
+        window.modifiedModel.setValue(newDiffContents?.rightContent ?? '');
+        
+        // Update title
+        if (newDiffContents?.leftPath || newDiffContents?.rightPath) {
+          const leftName = newDiffContents.leftPath ?? 'untitled';
+          const rightName = newDiffContents.rightPath ?? 'untitled';
+          document.title = `MonacoMeld - ${leftName} ↔ ${rightName}`;
+        }
+      }
+    } catch (err) {
+      console.error('Error handling SSE message:', err);
+    }
   };
+  
+  evtSource.onerror = (err) => {
+    console.error('SSE connection error:', err);
+  };
+}
 
+window.addEventListener("DOMContentLoaded", async () => {
+  console.log("Loading Monaco...");
+  
   require(["vs/editor/editor.main"], async function () {
     console.log("Monaco diff editor loaded");
 
-    let leftContent = ""; // Default to empty string
-    let rightContent = ""; // Default to empty string
-    let initialContent = ""; // Add proper declaration here
-    let originalModel, modifiedModel; // Declare models at this scope
-
+    let leftContent = ""; 
+    let rightContent = ""; 
+    let initialContent = "";
+    
     try {
-      const diffContents = await window.electronAPI.getDiffContents();
+      // Fetch initial content
+      const response = isWeb ? 
+        await fetch('http://localhost:3000/diff') : 
+        { json: () => window.electronAPI.getDiffContents() };
+      const diffContents = await response.json();
+      
+      console.log("Got diff contents:", diffContents);
+
       // If no diffContents or both contents null, use samples
       if (!diffContents || (diffContents.leftContent === null && diffContents.rightContent === null)) {
         leftContent = sampleText1;
         rightContent = sampleText2;
-        originalModel = monaco.editor.createModel(leftContent, 'javascript');
-        modifiedModel = monaco.editor.createModel(rightContent, 'javascript');
       } else {
-        // Otherwise use provided content (even if empty string)
-        if (diffContents.leftContent !== null) leftContent = diffContents.leftContent;
-        if (diffContents.rightContent !== null) rightContent = diffContents.rightContent;
+        leftContent = diffContents.leftContent ?? '';
+        rightContent = diffContents.rightContent ?? '';
+      }
 
-        // Get language from file paths
-        const language = getLanguageFromPath(diffContents.leftPath) || getLanguageFromPath(diffContents.rightPath);
-        originalModel = monaco.editor.createModel(leftContent, language);
-        modifiedModel = monaco.editor.createModel(rightContent, language);
+      // Get language from file paths
+      const language = getLanguageFromPath(diffContents?.leftPath) || 
+                      getLanguageFromPath(diffContents?.rightPath) || 
+                      'javascript';
 
-        // Update window title with filenames
-        const leftName = diffContents.leftPath ? diffContents.leftPath : 'untitled';
-        const rightName = diffContents.rightPath ? diffContents.rightPath : 'untitled';
+      // Create and store models globally
+      window.originalModel = monaco.editor.createModel(leftContent, language);
+      window.modifiedModel = monaco.editor.createModel(rightContent, language);
+
+      // Update window title
+      if (diffContents?.leftPath || diffContents?.rightPath) {
+        const leftName = diffContents.leftPath ?? 'untitled';
+        const rightName = diffContents.rightPath ?? 'untitled';
         document.title = `MonacoMeld - ${leftName} ↔ ${rightName}`;
       }
-      
-      initialContent = await window.electronAPI.getOriginalContent();
+
+      // Enable undo support
+      window.originalModel.setEOL(monaco.editor.EndOfLineSequence.LF);
+      window.originalModel.pushStackElement();
+
+      // Create diff editor
+      const diffEditor = monaco.editor.createDiffEditor(
+        document.getElementById("container"),
+        {
+          theme: "vs-dark",
+          automaticLayout: true,
+          renderSideBySide: true,
+          originalEditable: true,
+          renderIndicators: true,
+          renderMarginRevertIcon: true,
+          ignoreTrimWhitespace: false,
+        }
+      );
+
+      // Set models
+      diffEditor.setModel({
+        original: window.originalModel,
+        modified: window.modifiedModel,
+      });
+
+      // Expose functions for main process
+      window.hasUnsavedChanges = () => {
+        const currentContent = window.originalModel.getValue();
+        return initialContent !== null && currentContent !== initialContent;
+      };
+
+      window.getLeftContent = () => window.originalModel.getValue();
+
+      // Focus on the original (left) editor
+      setTimeout(() => diffEditor.getModifiedEditor().focus(), 100);
+
+      const modifiedEditor = diffEditor.getModifiedEditor();
+      const originalEditor = diffEditor.getOriginalEditor();
+
+      // Setup editor commands
+      setupEditorCommands(
+        diffEditor, 
+        originalEditor, 
+        modifiedEditor,
+        async () => {
+          const content = window.originalModel.getValue();
+          const saved = await saveContent(content, originalEditor);
+          if (saved) {
+            initialContent = content;
+          }
+        }
+      );
+
+      // Simpler beforeunload handler
+      if (isWeb) {
+        window.addEventListener('beforeunload', async (e) => {
+          if (window.hasUnsavedChanges()) {
+            e.preventDefault();
+            e.returnValue = '';
+            
+            if (confirm('Do you want to save changes before closing?')) {
+              await saveContent(window.originalModel.getValue());
+            }
+          }
+        });
+      }
+
+      // Setup SSE in web mode
+      if (isWeb) {
+        setupEventSource();
+      }
+
     } catch (err) {
-      console.error("Error getting diff contents:", err);
-      // Fallback to samples if error
-      leftContent = sampleText1;
-      rightContent = sampleText2;
-      originalModel = monaco.editor.createModel(leftContent, 'javascript');
-      modifiedModel = monaco.editor.createModel(rightContent, 'javascript');
+      console.error("Error initializing Monaco:", err);
+      // Fallback to samples
+      window.originalModel = monaco.editor.createModel(sampleText1, 'javascript');
+      window.modifiedModel = monaco.editor.createModel(sampleText2, 'javascript');
     }
 
-    // Enable undo support
-    originalModel.setEOL(monaco.editor.EndOfLineSequence.LF);
-    originalModel.pushStackElement();
-
-    const diffEditor = monaco.editor.createDiffEditor(
-      document.getElementById("container"),
-      {
-        theme: "vs-dark",
-        automaticLayout: true,
-        renderSideBySide: true,
-        originalEditable: true,
-        renderIndicators: true,
-        renderMarginRevertIcon: true,
-        ignoreTrimWhitespace: false,
-      }
-    );
-
-    diffEditor.setModel({
-      original: originalModel,
-      modified: modifiedModel,
-    });
-
-    // Expose functions for main process
-    window.hasUnsavedChanges = () => {
-      const currentContent = originalModel.getValue();
-      return initialContent !== null && currentContent !== initialContent;
-    };
-
-    window.getLeftContent = () => originalModel.getValue();
-
-    // Focus on the original (left) editor
-    setTimeout(() => diffEditor.getModifiedEditor().focus(), 100);
-
-    const modifiedEditor = diffEditor.getModifiedEditor();
-    const originalEditor = diffEditor.getOriginalEditor();
-
-    // Save command
-    originalEditor.addCommand(
-      monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
-      async () => {
-        try {
-          const content = originalModel.getValue();
-          const saved = await window.electronAPI.saveContent(content);
-          if (!saved) {
-            console.error("Failed to save file");
-          } else {
-            initialContent = content; // Update initial content after successful save
-          }
-        } catch (err) {
-          console.error("Error saving:", err);
-        }
-      }
-    );
-
-    // Navigation commands
-    modifiedEditor.addCommand(
-      monaco.KeyMod.Alt | monaco.KeyCode.DownArrow,
-      () => {
-        const changes = diffEditor.getLineChanges();
-        const currentLine = modifiedEditor.getPosition().lineNumber;
-        const nextChange = changes?.find(
-          (change) => change.modifiedStartLineNumber > currentLine
-        );
-
-        if (nextChange) {
-          modifiedEditor.setPosition({
-            lineNumber: nextChange.modifiedStartLineNumber,
-            column: 1,
-          });
-          modifiedEditor.revealLineInCenter(nextChange.modifiedStartLineNumber);
-        }
-      }
-    );
-
-    modifiedEditor.addCommand(
-      monaco.KeyMod.Alt | monaco.KeyCode.UpArrow,
-      () => {
-        const changes = diffEditor.getLineChanges();
-        const currentLine = modifiedEditor.getPosition().lineNumber;
-        const prevChange = [...(changes || [])]
-          .reverse()
-          .find((change) => change.modifiedStartLineNumber < currentLine);
-
-        if (prevChange) {
-          modifiedEditor.setPosition({
-            lineNumber: prevChange.modifiedStartLineNumber,
-            column: 1,
-          });
-          modifiedEditor.revealLineInCenter(prevChange.modifiedStartLineNumber);
-        }
-      }
-    );
-
-    // Transfer chunk from right to left on Alt+Left
-    modifiedEditor.addCommand(
-      monaco.KeyMod.Alt | monaco.KeyCode.LeftArrow,
-      () => {
-        const changes = diffEditor.getLineChanges();
-        const currentLine = modifiedEditor.getPosition().lineNumber;
-
-        const diffOp = new DiffOperation(originalModel, modifiedModel);
-        diffOp.acceptCurrentChange(currentLine, changes);
-      }
-    );
-
-    // Enable Ctrl+Z for undo in the original editor
-    originalEditor.addCommand(
-      monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyZ,
-      () => {
-        originalModel.undo();
-      }
-    );
+    // ... rest of the code ...
   });
 });
