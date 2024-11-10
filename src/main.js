@@ -55,6 +55,7 @@ function parseProcessInput() {
   const effectiveArgs = args[0].includes('monacomeld') ? args.slice(1) : args.slice(2);
   
   if (effectiveArgs.length === 0) {
+    console.log('No input files specified');
     return { leftContent: null, rightContent: null, leftPath: null, rightPath: null };
   }
   
@@ -63,15 +64,12 @@ function parseProcessInput() {
   let rightPath = null;
   originalFilePath = effectiveArgs[0];
 
-  // Read left file
   if (fs.existsSync(effectiveArgs[0])) {
     try {
       leftFile = fs.readFileSync(effectiveArgs[0], 'utf-8');
     } catch (err) {
       console.error('Error reading leftFile:', err);
     }
-  } else {
-    console.log('Left file does not exist yet, starting with empty content');
   }
 
   // Handle the second argument
@@ -79,6 +77,9 @@ function parseProcessInput() {
     rightPath = effectiveArgs[1];
     try {
       rightContent = rightPath === '-' || !process.stdin.isTTY ?
+        fs.readFileSync(0).toString() : // fd 0 is stdin
+        fs.readFileSync(rightPath, 'utf-8');
+      rightPath = rightPath === '-' ? '<stdin>' : rightPath;
     } catch (err) {
       console.error('Error reading content:', err);
     }
@@ -124,6 +125,13 @@ function startWebServer() {
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
+    // Add health check endpoint
+    if (req.url === '/health') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ status: 'ok' }));
+      return;
+    }
+
     // Handle SSE endpoint
     if (req.url === '/events') {
       res.writeHead(200, {
@@ -133,9 +141,16 @@ function startWebServer() {
       });
       
       sseClients.add(res);
+      console.log('New SSE client connected, total:', sseClients.size);
+      
+      // Send current content immediately when client connects
+      if (diffContents) {
+        res.write(`data: ${JSON.stringify(diffContents)}\n\n`);
+      }
       
       req.on('close', () => {
         sseClients.delete(res);
+        console.log('SSE client disconnected, remaining:', sseClients.size);
       });
       
       return;
@@ -191,7 +206,9 @@ function startWebServer() {
           
           diffContents = data;
           
-          // Notify all connected clients
+          
+          // Notify all web clients
+          console.log('Sending to SSE clients, count:', sseClients.size); // Debug log
           sseClients.forEach(client => {
             client.write(`data: ${JSON.stringify(data)}\n\n`);
           });
@@ -309,9 +326,18 @@ function handleWindowClose(event) {
 
       const { response } = await dialog.showMessageBox(mainWindow, {
         type: 'question',
-        buttons: ['Save', 'Don\'t Save', 'Cancel'],
+        buttons: ['Save', 'Close Without Saving', 'Cancel'],
         defaultId: 0,
-        message: 'Do you want to save the changes?'
+        cancelId: 2,
+        noLink: true,
+        title: 'Save Changes',
+        message: 'Do you want to save the changes?',
+        normalizeAccessKeys: true,
+        buttonStyles: [
+          { color: '#1e8e3e', primary: true }, // Green color for Save
+          {}, // Default for Close Without Saving
+          {}  // Default for Cancel
+        ]
       });
 
       if (response === 0) { // Save
@@ -331,7 +357,7 @@ function handleWindowClose(event) {
             message: 'Failed to save file: ' + err.message
           });
         }
-      } else if (response === 1) { // Don't Save
+      } else if (response === 1) { // Close Without Saving
         isQuitting = true;
         app.quit();
       }

@@ -13,6 +13,9 @@ A drop in replacement for meld with monaco diff. A lightweight Electron based ap
   - ⌥ Alt + ⬆︎: Navigate to previous change
   - ⌥ Alt + ⬇︎: Navigate to next change
   - ⌥ Alt + ⬅︎: Accept current change from right to left
+- Editor switching
+  - Ctrl + ⬆︎: Switch to previous editor
+  - Ctrl + ⬇︎: Switch to next editor
 - Syntax highlighting with Monaco
 
 ## Usage
@@ -34,6 +37,27 @@ new content here
 with multiple lines
 EOF
 ```
+
+### Web Mode Usage
+
+In web mode, you can also send diffs via HTTP:
+
+curl -X POST http://localhost:3000/diff \
+  -H "Content-Type: application/json" \
+  -d '{
+    "leftPath": "examples/file1.js",
+    "rightPath": "examples/file2.js"
+  }'
+
+Or with direct content:
+curl -X POST http://localhost:3000/diff \
+  -H "Content-Type: application/json" \
+  -d '{
+    "leftContent": "original content",
+    "rightContent": "modified content",
+    "leftPath": "file1.js",
+    "rightPath": "file2.js"
+  }'
 
 ## Building
 
