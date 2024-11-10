@@ -115,6 +115,9 @@ function setupEventSource() {
 window.addEventListener("DOMContentLoaded", async () => {
   console.log("Loading Monaco...");
   
+  // Setup SSE first, before loading Monaco
+  setupEventSource();
+  
   require(["vs/editor/editor.main"], async function () {
     console.log("Monaco diff editor loaded");
 
@@ -220,11 +223,6 @@ window.addEventListener("DOMContentLoaded", async () => {
             }
           }
         });
-      }
-
-      // Setup SSE in web mode
-      if (isWeb) {
-        setupEventSource();
       }
 
     } catch (err) {

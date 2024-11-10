@@ -78,15 +78,7 @@ function parseProcessInput() {
   if (effectiveArgs[1]) {
     rightPath = effectiveArgs[1];
     try {
-      // Handle stdin input
-      if (rightPath === '-' || !process.stdin.isTTY) {
-        const stdinBuffer = fs.readFileSync(0); // fd 0 is stdin
-        rightContent = stdinBuffer.toString();
-        rightPath = '<stdin>';
-      } else {
-        // Regular file read
-        rightContent = fs.readFileSync(rightPath, 'utf-8');
-      }
+      rightContent = rightPath === '-' || !process.stdin.isTTY ?
     } catch (err) {
       console.error('Error reading content:', err);
     }
@@ -274,13 +266,18 @@ function startWebServer() {
   });
 }
 
-// Modify the existing app startup
+// Modify the existing app startup to always run web server
 const webMode = process.argv.includes('--web');
-if (webMode) {
-  app.whenReady().then(startWebServer);
-} else {
-  app.whenReady().then(createWindow);
-}
+
+app.whenReady().then(async () => {
+  // Always start the web server
+  startWebServer();
+  
+  // Only create window if not in web-only mode
+  if (!webMode) {
+    createWindow();
+  }
+});
 
 // Add cleanup
 app.on('window-all-closed', () => {
