@@ -5,18 +5,31 @@ import { showStatusNotification } from "../ui/notifications.js";
 // Add save helper function
 async function saveFile(model) {
   try {
+    // Add safety check for path
+    if (!model?.path) {
+      console.error('No file path available for save');
+      showStatusNotification('No file path available', 'error');
+      return false;
+    }
+
+    const content = model.original.getValue();
     const response = await fetch(`http://localhost:${currentPort}/save`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: model.original.getValue(), path: model.path })
+      body: JSON.stringify({ 
+        content,
+        path: model.path  // Ensure we use the path stored with the model
+      })
     });
+    
     if (response.ok) {
-      model.initialContent = model.original.getValue();
+      model.initialContent = content;
       model.container.querySelector('.title-text')?.classList.remove('unsaved');
       updateWindowTitle();
       showStatusNotification('File saved successfully!', 'success');
       return true;
     }
+    
     showStatusNotification('Failed to save file!', 'error');
     return false;
   } catch (err) {
@@ -51,7 +64,7 @@ export function createCloseCommand(container, diffEditor) {
         let message = 'Do you want to save changes?';
         if (hasUnmergedChanges) {
           message = hasUnsavedChanges ? 
-            'There are unsaved changes and unmerged diffs. Do you want to save changes?' :
+            'There are unsaved changes and unmerged diffs. Do you want to save changes before quit?' :
             'There are unmerged diffs. Are you sure you want to close?';
         }
         
@@ -73,6 +86,7 @@ export function createCloseCommand(container, diffEditor) {
         
         const result = await window.electronAPI?.showSaveDialog?.(dialogOptions) ?? window.confirm(message);
         if (result === true) {
+          hasUnsavedChanges && await saveFile(model);
           // We don't want to save and want to just exit with unmerged diffs.
         } else if (result === 0) { // Save
           if (!await saveFile(model)) return false;
@@ -130,7 +144,8 @@ function setupKeybindings(diffEditor, editor) {
     monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
     async () => {
       const index = window.diffModels.findIndex(model => 
-        model.editor === diffEditor
+        model.editor === diffEditor &&
+        (model.original === editor.getModel() || model.modified === editor.getModel())
       );
       if (index !== -1) await saveFile(window.diffModels[index]);
     }
