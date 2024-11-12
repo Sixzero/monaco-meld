@@ -21,3 +21,20 @@ export function showStatusNotification(message, type = 'success') {
   
   setTimeout(() => statusBarElement.remove(), 2000);
 }
+
+export async function notifyWithFocus(title, message, icon = '/public/favicon.ico') {
+  // Focus window if available
+  if (window.electronAPI?.focusWindow) {
+    await window.electronAPI.focusWindow();
+  }
+  
+  // Show system notification
+  if (Notification.permission === 'granted') {
+    new Notification(title, { body: message, icon });
+  } else if (Notification.permission !== 'denied') {
+    const permission = await Notification.requestPermission();
+    if (permission === 'granted') {
+      new Notification(title, { body: message, icon });
+    }
+  }
+}

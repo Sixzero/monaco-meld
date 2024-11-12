@@ -40,7 +40,6 @@ console = createCustomLogger();
 
 // Add helper function to read file content
 function readFileContent(filePath) {
-  if (!filePath) return null;
   try {
     return fs.readFileSync(filePath, 'utf-8');
   } catch (err) {
@@ -49,12 +48,20 @@ function readFileContent(filePath) {
   }
 }
 
+// Add path resolution helper
+function resolveFilePath(filePath, pwd) {
+  if (!filePath || !pwd) return filePath;
+  return path.isAbsolute(filePath) ? filePath : path.join(pwd, filePath);
+}
+
 function parseProcessInput() {
   const args = process.argv;
   
   // Get the effective arguments, skipping the executable path
-  const effectiveArgs = args[0].includes('monacomeld') ? args.slice(1) : args.slice(2);
-  
+  let effectiveArgs = args[0].includes('monacomeld') ? args.slice(1) : args.slice(2);
+  effectiveArgs = effectiveArgs.filter(arg => !arg.startsWith('--'))
+  console.log('effectiveArgs:', effectiveArgs)
+
   if (effectiveArgs.length === 0) {
     console.log('No input files specified');
     return { leftContent: null, rightContent: null, leftPath: null, rightPath: null };
@@ -107,13 +114,6 @@ function createWindow() {
     }
   });
 
-  // Parse input files before loading the window
-  try {
-    diffContents = parseProcessInput();
-  } catch (err) {
-    console.error('Error reading input files:', err);
-  }
-
   mainWindow.loadFile('public/index.html');
   mainWindow.on('close', handleWindowClose);
 }
@@ -163,8 +163,8 @@ function startWebServer() {
       req.on('data', chunk => body += chunk.toString());
       req.on('end', () => {
         try {
-          const { content } = JSON.parse(body);
-          const path = diffContents?.leftPath;
+          const { content, path } = JSON.parse(body);
+          console.log('path:', path)
           
           if (!path) {
             res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -188,7 +188,7 @@ function startWebServer() {
       });
       return;
     }
-
+    
     // Modify POST /diff to store history
     if (req.method === 'POST' && req.url === '/diff') {
       let body = '';
@@ -196,22 +196,46 @@ function startWebServer() {
       req.on('end', () => {
         try {
           const data = JSON.parse(body);
+          const pwd = data.pwd || process.cwd();
+          console.log('data.pwd:', data.pwd)
+          console.log('pwd:', pwd)
           
-          // Read file contents if only paths provided
-          if (data.leftPath && !data.leftContent) {
-            data.leftContent = readFileContent(data.leftPath);
+          // Only resolve paths if both pwd and path exist
+          if (data.leftPath) {
+            const resolvedLeftPath = resolveFilePath(data.leftPath, pwd);
+            data.leftPath = resolvedLeftPath;
+            if (!data.leftContent) {
+              data.leftContent = readFileContent(data.leftPath);
+            }
           }
-          if (data.rightPath && !data.rightContent) {
-            data.rightContent = readFileContent(data.rightPath);
-          }
+          console.log('data.leftPath:', data.leftPath)
           
-          const id = Date.now().toString(); // Simple unique ID
+          if (data.rightPath) {
+            const resolvedRightPath = resolveFilePath(data.rightPath, pwd);
+            data.rightPath = resolvedRightPath;
+            if (!data.rightContent) {
+              data.rightContent = readFileContent(data.rightPath);
+            }
+          }
+          console.log('data.rightPath:', data.rightPath)
+
+          const id = Date.now().toString();
           diffHistory.set(id, data);
           
           // Notify all web clients with ID
           sseClients.forEach(client => {
             client.write(`data: ${JSON.stringify({...data, id})}\n\n`);
           });
+          
+          // Focus window if it exists
+          if (mainWindow) {
+            mainWindow.show();
+            mainWindow.focus();
+            // On macOS, bounce the dock icon
+            if (process.platform === 'darwin') {
+              app.dock.bounce('critical');
+            }
+          }
           
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ status: 'ok', id }));
@@ -304,6 +328,12 @@ app.whenReady().then(async () => {
   // Always start the web server
   startWebServer();
   
+  // Parse input files before loading the window
+  try {
+    diffContents = parseProcessInput();
+  } catch (err) {
+    console.error('Error reading input files:', err);
+  }
   // Only create window if not in web-only mode
   if (!webMode) {
     createWindow();
@@ -384,24 +414,20 @@ function handleWindowClose(event) {
     });
 }
 
-// Handle IPC request for diff contents
-ipcMain.handle('get-diff-contents', () => diffContents);
-
-// Handle IPC request for saving content
-ipcMain.handle('get-original-content', () => diffContents?.leftContent || null);
-ipcMain.handle('save-content', async (event, content) => {
-  if (!originalFilePath) return false;
-  try {
-    fs.writeFileSync(originalFilePath, content, 'utf-8');
-    return true;
-  } catch (err) {
-    console.error('Error saving file:', err);
-    return false;
-  }
-});
-
 app.on('activate', () => {
   if (mainWindow === null) {
     createWindow();
+  }
+});
+
+// Add IPC handler for window focus
+ipcMain.handle('focus-window', () => {
+  if (mainWindow) {
+    mainWindow.show();
+    mainWindow.focus();
+    // On macOS, bounce the dock icon
+    if (process.platform === 'darwin') {
+      app.dock.bounce('critical');
+    }
   }
 });

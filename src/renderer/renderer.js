@@ -1,6 +1,7 @@
-import { sampleText1, sampleText2 } from "./samples.js";
 import { setupEditorCommands } from "./editor/commands.js";
-import { showStatusNotification } from "./ui/notifications.js";
+import { showStatusNotification, notifyWithFocus } from "./ui/notifications.js";
+import { currentPort } from "./config.js";
+import {createEmptyState} from "./ui/emptyState.js"
 
 const isWeb = !window.electronAPI;
 const basePath = isWeb ? '' : '..';
@@ -53,7 +54,7 @@ function getLanguageFromPath(filePath) {
   return langMap[ext] || 'plaintext';
 }
 
-function createDiffEditor(containerId, leftContent, rightContent, language, leftPath, rightPath) {
+function createDiffEditor(containerId, leftContent, rightContent, language, leftPath, rightPath, diffId = null) { // Add diffId param
   const container = document.createElement('div');
   container.style.minHeight = '100px';  // Minimum height
   container.style.maxHeight = '500px';  // Maximum height
@@ -71,6 +72,17 @@ function createDiffEditor(containerId, leftContent, rightContent, language, left
   const titleText = document.createElement('span');
   titleText.textContent = `${leftPath ?? 'untitled'} ← ${rightPath ?? 'untitled'}`; // Changed ↔ to ←
   titleText.style.color = '#e0e0e0';  // Light gray color for better visibility
+  titleText.classList.add('title-text');  // Add class for styling
+  
+  // Add style for unsaved indicator
+  const style = document.createElement('style');
+  style.textContent = `
+    .title-text.unsaved::after {
+      content: ' •';
+      color: #f9ab00;
+    }
+  `;
+  document.head.appendChild(style);
   
   const closeButton = document.createElement('button');
   closeButton.innerHTML = '×';
@@ -80,7 +92,7 @@ function createDiffEditor(containerId, leftContent, rightContent, language, left
   closeButton.style.fontSize = '20px';
   closeButton.style.cursor = 'pointer';
   closeButton.style.padding = '0 5px';
-  closeButton.title = 'Close (Ctrl+W)';
+  closeButton.title = 'Close (Alt+W)'; // Updated shortcut hint
   
   titleBar.appendChild(titleText);
   titleBar.appendChild(closeButton);
@@ -141,7 +153,8 @@ function createDiffEditor(containerId, leftContent, rightContent, language, left
     editor: diffEditor,
     path: leftPath,
     initialContent: leftContent,
-    container: container // Add container reference
+    container: container,
+    id: diffId // Store the ID
   });
 
   // Update window title
@@ -150,12 +163,10 @@ function createDiffEditor(containerId, leftContent, rightContent, language, left
   return { diffEditor, originalModel, modifiedModel };
 }
 
-// Simplified save function
+
 async function saveContent(content, editor, filePath) {
   try {
-    const result = !isWeb ? 
-      await window.electronAPI.saveContent(content, filePath) :
-      await fetch('http://localhost:3000/save', {
+    const result = await fetch(`http://localhost:${currentPort}/save`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content, path: filePath })
@@ -177,14 +188,32 @@ async function saveContent(content, editor, filePath) {
   }
 }
 
-// Replace polling with SSE
 function setupEventSource() {
-  const evtSource = new EventSource('http://localhost:3000/events');
+  const evtSource = new EventSource(`http://localhost:${currentPort}/events`);
   
   evtSource.onmessage = (event) => {
     try {
       const newDiffContents = JSON.parse(event.data);
       const diffs = Array.isArray(newDiffContents) ? newDiffContents : [newDiffContents];
+      
+      // Remove empty state if it exists and we're getting diffs
+      if (window.diffModels.length === 0 && diffs.length > 0) {
+        const container = document.getElementById('container');
+        while (container.firstChild) {
+          container.firstChild.remove();
+        }
+      }
+      
+      // Store initial model count to check if this is the first diff
+      const initialModelCount = window.diffModels.length;
+      
+      // Show notification for new diffs
+      if (diffs.length > 0) {
+        notifyWithFocus(
+          'New Diffs Available',
+          `${diffs.length} new diff${diffs.length > 1 ? 's' : ''} received`
+        );
+      }
       
       diffs.forEach(diff => {
         // Try to find existing diff by path
@@ -217,6 +246,11 @@ function setupEventSource() {
         }
       });
 
+      // Focus only if this was the first diff added
+      if (initialModelCount === 0 && window.diffModels.length > 0) {
+        setTimeout(() => window.diffModels[0]?.editor.getModifiedEditor().focus(), 100);
+      }
+
       // Update window title to reflect number of diffs
       document.title = `MonacoMeld - ${window.diffModels.length} files`;
 
@@ -231,35 +265,51 @@ function setupEventSource() {
 }
 
 window.addEventListener("DOMContentLoaded", async () => {
+  // Store models globally for each diff
+  window.diffModels = [];
+  
+  // Add window close prevention handler
+  window.addEventListener('keydown', (e) => {
+    console.log('e:', e)
+    // Check for Ctrl+W (Windows/Linux) or Cmd+W (Mac)
+    if ((e.ctrlKey || e.metaKey) && e.code === 'KeyS') {
+      e.preventDefault();
+    }
+    if ((e.ctrlKey || e.metaKey) && e.code === 'KeyW') {
+      // Prevent window close if we have more than one diff
+      if (window.diffModels.length > 0) {
+        e.preventDefault();
+      }
+    }
+  }, true); // Use capture phase to handle event before browser
+  
   console.log("Loading Monaco...");
-  
-  setupEventSource();
-  
   require(["vs/editor/editor.main"], async function () {
+
     try {
-      const response = isWeb ? 
-        await fetch('http://localhost:3000/diff') : 
-        { json: () => window.electronAPI.getDiffContents() };
+      const response = await fetch(`http://localhost:${currentPort}/diff`);
       const diffContents = await response.json();
 
       // Convert single diff to array format for consistency
       const diffs = Array.isArray(diffContents) ? diffContents : [diffContents];
       
-      // Store models globally for each diff
-      window.diffModels = [];
-
-      diffs.forEach((diff) => {
-        createDiffEditor(
-          'container',
-          diff?.leftContent ?? sampleText1,
-          diff?.rightContent ?? sampleText2,
-          getLanguageFromPath(diff?.leftPath) || 
-          getLanguageFromPath(diff?.rightPath) || 
-          'javascript',
-          diff?.leftPath,
-          diff?.rightPath
-        );
-      });
+      if (diffs.length === 0 || (diffs.length === 1 && !diffs[0].leftContent && !diffs[0].rightContent)) {
+        createEmptyState(document.getElementById('container'), createDiffEditor);
+      } else {
+        diffs.forEach((diff) => {
+          createDiffEditor(
+            'container',
+            diff.leftContent,
+            diff.rightContent,
+            getLanguageFromPath(diff.leftPath) || 
+            getLanguageFromPath(diff.rightPath) || 
+            'javascript',
+            diff.leftPath,
+            diff.rightPath,
+            diff.id
+          );
+        });
+      }
 
       // Update hasUnsavedChanges to check all editors
       window.hasUnsavedChanges = () => {
@@ -275,16 +325,10 @@ window.addEventListener("DOMContentLoaded", async () => {
 
     } catch (err) {
       console.error("Error initializing Monaco:", err);
-      // Fallback to single diff with samples
-      createDiffEditor(
-        'container',
-        sampleText1,
-        sampleText2,
-        'javascript',
-        'sample1.js',
-        'sample2.js'
-      );
+      createEmptyState(document.getElementById('container'), createDiffEditor);
     }
+    
+    setupEventSource();
 
     // Focus on the original (left) editor
     setTimeout(() => window.diffModels[0]?.editor.getModifiedEditor().focus(), 100);

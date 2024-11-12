@@ -1,4 +1,30 @@
 import { DiffOperation } from "../diffOperations.js";
+import { currentPort } from '../config.js';
+import { showStatusNotification } from "../ui/notifications.js";
+
+// Add save helper function
+async function saveFile(model) {
+  try {
+    const response = await fetch(`http://localhost:${currentPort}/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: model.original.getValue(), path: model.path })
+    });
+    if (response.ok) {
+      model.initialContent = model.original.getValue();
+      model.container.querySelector('.title-text')?.classList.remove('unsaved');
+      updateWindowTitle();
+      showStatusNotification('File saved successfully!', 'success');
+      return true;
+    }
+    showStatusNotification('Failed to save file!', 'error');
+    return false;
+  } catch (err) {
+    console.error('Error saving:', err);
+    showStatusNotification('Failed to save file!', 'error');
+    return false;
+  }
+}
 
 // Create a reusable close command
 export function createCloseCommand(container, diffEditor) {
@@ -39,31 +65,45 @@ export function createCloseCommand(container, diffEditor) {
           title: 'Save Changes',
           normalizeAccessKeys: true,
           buttonStyles: [
-            { color: '#1e8e3e', primary: true }, // Green color for Save
-            {}, // Default for Close Without Saving
-            {}  // Default for Cancel
+            { color: '#1e8e3e', primary: true },
+            {},
+            {}
           ]
         };
         
         const result = await window.electronAPI?.showSaveDialog?.(dialogOptions) ?? window.confirm(message);
-        
-        if (result === 0 || result === true) { // Save
-          const saved = await window.electronAPI?.saveContent?.(currentContent, model.path) ?? false;
-          if (!saved) return false;
+        if (result === true) {
+          // We don't want to save and want to just exit with unmerged diffs.
+        } else if (result === 0) { // Save
+          if (!await saveFile(model)) return false;
         } else if (result === 2 || result === false) { // Cancel
           return false;
         }
       }
       
-      // Changed disposal order and cleanup
-      diffEditor.dispose();         // First dispose the diff editor
+      // Send delete request if we have an ID
+      if (model.id) {
+        try {
+          const response = await fetch(`http://localhost:${currentPort}/diff/${model.id}`, {
+            method: 'DELETE',
+          });
+          if (!response.ok) {
+            console.error('Failed to delete diff:', await response.text());
+          }
+        } catch (err) {
+          console.error('Error deleting diff:', err);
+        }
+      }
+
+      // Cleanup
+      diffEditor.dispose();
       window.diffModels.splice(index, 1);
-      model.container.remove();     // Use stored container reference
-      originalModel.dispose();      // Then dispose the models
+      model.container.remove();
+      originalModel.dispose();
       modifiedModel.dispose();
       
       // Update window title
-      document.title = `MonacoMeld - ${window.diffModels.length} files`;
+      updateWindowTitle();
 
       // Focus on next available editor if exists
       if (window.diffModels.length > 0) {
@@ -83,28 +123,23 @@ export function createCloseCommand(container, diffEditor) {
   };
 }
 
-// Update setupKeybindings close command to use the stored container
+// Update setupKeybindings function
 function setupKeybindings(diffEditor, editor) {
   // Save command
   editor.addCommand(
     monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
     async () => {
-      const content = editor.getModel().getValue();
-      const index = window.diffModels.findIndex(model => model.original === editor.getModel());
-      if (index !== -1) {
-        const model = window.diffModels[index];
-        const saved = await window.electronAPI?.saveContent?.(content, model.path) ?? false;
-        if (saved) {
-          model.initialContent = content;
-        }
-      }
+      const index = window.diffModels.findIndex(model => 
+        model.editor === diffEditor
+      );
+      if (index !== -1) await saveFile(window.diffModels[index]);
     }
   );
 
-  // Close command
+  // Update close command to use Alt+W instead of Ctrl+W
   editor.addCommand(
-    monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyW,
-    createCloseCommand(null, diffEditor) // Container param no longer needed
+    monaco.KeyMod.Alt | monaco.KeyCode.KeyW,
+    createCloseCommand(null, diffEditor)
   );
 
   // Transfer chunk commands
@@ -187,7 +222,32 @@ export function setupEditorCommands(diffEditor, originalEditor, modifiedEditor, 
     setupKeybindings(diffEditor, modifiedEditor);
   });
 
+  // Add change listener to track unsaved changes
+  originalEditor.onDidChangeModelContent(() => {
+    const index = window.diffModels.findIndex(model => model.editor === diffEditor);
+    if (index !== -1) {
+      const model = window.diffModels[index];
+      const hasChanges = model.initialContent !== model.original.getValue();
+      const titleText = container.querySelector('.title-text');
+      if (hasChanges) {
+        titleText?.classList.add('unsaved');
+      } else {
+        titleText?.classList.remove('unsaved');
+      }
+      updateWindowTitle();
+    }
+  });
+
   return closeCommand; // Return for the close button
+}
+
+// Add window title update helper
+function updateWindowTitle() {
+  const unsavedCount = window.diffModels.filter(model => 
+    model.initialContent !== model.original.getValue()
+  ).length;
+  
+  document.title = `MonacoMeld - ${window.diffModels.length} files${unsavedCount ? ` (${unsavedCount} unsaved)` : ''}`;
 }
 
 function navigateToNextChange(diffEditor, editorView) {
@@ -196,7 +256,6 @@ function navigateToNextChange(diffEditor, editorView) {
   const nextChange = changes?.find(
     (change) => change.modifiedStartLineNumber > currentLine
   );
-  console.log('nextChange:', nextChange)
 
   if (nextChange) {
     editorView.setPosition({
