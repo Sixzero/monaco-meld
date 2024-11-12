@@ -7,6 +7,7 @@ const url = require('url');
 
 let mainWindow;
 let diffContents = null;
+let diffHistory = new Map(); // Add diff history storage
 let originalFilePath = null;
 let isQuitting = false;  // Add flag to track if we're actually quitting
 let server = null;
@@ -122,7 +123,7 @@ function startWebServer() {
   server = http.createServer(async (req, res) => {
     // Enable CORS
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE'); // Added DELETE
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
     // Add health check endpoint
@@ -143,9 +144,9 @@ function startWebServer() {
       sseClients.add(res);
       console.log('New SSE client connected, total:', sseClients.size);
       
-      // Send current content immediately when client connects
-      if (diffContents) {
-        res.write(`data: ${JSON.stringify(diffContents)}\n\n`);
+      // Send all stored diffs to new client
+      for (const [id, diff] of diffHistory.entries()) {
+        res.write(`data: ${JSON.stringify({...diff, id})}\n\n`);
       }
       
       req.on('close', () => {
@@ -188,7 +189,7 @@ function startWebServer() {
       return;
     }
 
-    // Modify POST /diff to handle file paths
+    // Modify POST /diff to store history
     if (req.method === 'POST' && req.url === '/diff') {
       let body = '';
       req.on('data', chunk => body += chunk.toString());
@@ -204,22 +205,35 @@ function startWebServer() {
             data.rightContent = readFileContent(data.rightPath);
           }
           
-          diffContents = data;
+          const id = Date.now().toString(); // Simple unique ID
+          diffHistory.set(id, data);
           
-          
-          // Notify all web clients
-          console.log('Sending to SSE clients, count:', sseClients.size); // Debug log
+          // Notify all web clients with ID
           sseClients.forEach(client => {
-            client.write(`data: ${JSON.stringify(data)}\n\n`);
+            client.write(`data: ${JSON.stringify({...data, id})}\n\n`);
           });
           
           res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ status: 'ok' }));
+          res.end(JSON.stringify({ status: 'ok', id }));
         } catch (err) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Invalid JSON payload' }));
         }
       });
+      return;
+    }
+
+    // Add endpoint to remove diff
+    if (req.method === 'DELETE' && req.url.startsWith('/diff/')) {
+      const id = req.url.split('/')[2];
+      if (diffHistory.has(id)) {
+        diffHistory.delete(id);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'ok' }));
+      } else {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Diff not found' }));
+      }
       return;
     }
 
@@ -267,7 +281,7 @@ function startWebServer() {
       res.writeHead(200, { 
         'Content-Type': contentType,
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, DELETE', // Added DELETE
         'Access-Control-Allow-Headers': 'Content-Type'
       });
       res.end(content);
