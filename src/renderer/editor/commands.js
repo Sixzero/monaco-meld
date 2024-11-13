@@ -1,6 +1,7 @@
 import { DiffOperation } from "../diffOperations.js";
 import { currentPort } from '../config.js';
 import { showStatusNotification } from "../ui/notifications.js";
+import { focusAndResizeEditor } from '../ui/functions.js';
 
 // Add save helper function
 async function saveFile(model) {
@@ -119,15 +120,14 @@ export function createCloseCommand(container, diffEditor) {
       // Update window title
       updateWindowTitle();
 
-      // Focus on next available editor if exists
+      // Update focus after closing
       if (window.diffModels.length > 0) {
         const nextIndex = Math.min(index, window.diffModels.length - 1);
-        const nextEditor = window.diffModels[nextIndex].editor;
-        const nextModifiedEditor = nextEditor.getModifiedEditor();
+        const nextModel = window.diffModels[nextIndex];
+        const nextModifiedEditor = focusAndResizeEditor(nextModel);
         
         setTimeout(() => {
-          nextModifiedEditor.focus();
-          setupKeybindings(nextEditor, nextModifiedEditor);
+          setupKeybindings(nextModel.editor, nextModifiedEditor);
         }, 0);
       }
 
@@ -192,7 +192,7 @@ function setupKeybindings(diffEditor, editor) {
     }
   );
 
-  // Editor switching commands
+  // Update editor switching commands with scrolling
   editor.addCommand(
     monaco.KeyMod.CtrlCmd | monaco.KeyCode.UpArrow,
     () => {
@@ -200,10 +200,14 @@ function setupKeybindings(diffEditor, editor) {
         model.editor === diffEditor
       );
       if (currentIndex > 0) {
-        const prevEditor = window.diffModels[currentIndex - 1].editor;
-        const prevModifiedEditor = prevEditor.getModifiedEditor();
-        prevModifiedEditor.focus();
-        setupKeybindings(prevEditor, prevModifiedEditor);
+        const prevModel = window.diffModels[currentIndex - 1];
+        const prevModifiedEditor = focusAndResizeEditor(prevModel);
+        setupKeybindings(prevModel.editor, prevModifiedEditor);
+        // Changed from 'start' to 'center'
+        prevModel.container.scrollIntoView({ 
+          behavior: 'smooth',
+          block: 'center'
+        });
       }
     }
   );
@@ -215,10 +219,14 @@ function setupKeybindings(diffEditor, editor) {
         model.editor === diffEditor
       );
       if (currentIndex < window.diffModels.length - 1) {
-        const nextEditor = window.diffModels[currentIndex + 1].editor;
-        const nextModifiedEditor = nextEditor.getModifiedEditor();
-        nextModifiedEditor.focus();
-        setupKeybindings(nextEditor, nextModifiedEditor);
+        const nextModel = window.diffModels[currentIndex + 1];
+        const nextModifiedEditor = focusAndResizeEditor(nextModel);
+        setupKeybindings(nextModel.editor, nextModifiedEditor);
+        // Changed from 'start' to 'center'
+        nextModel.container.scrollIntoView({ 
+          behavior: 'smooth',
+          block: 'center'
+        });
       }
     }
   );
@@ -265,7 +273,8 @@ function updateWindowTitle() {
   document.title = `MonacoMeld - ${window.diffModels.length} files${unsavedCount ? ` (${unsavedCount} unsaved)` : ''}`;
 }
 
-function navigateToNextChange(diffEditor, editorView) {
+// Export the navigation functions
+export function navigateToNextChange(diffEditor, editorView) {
   const changes = diffEditor.getLineChanges();
   const currentLine = editorView.getPosition().lineNumber;
   const nextChange = changes?.find(
@@ -277,7 +286,6 @@ function navigateToNextChange(diffEditor, editorView) {
       lineNumber: nextChange.modifiedStartLineNumber,
       column: 1,
     });
-    console.log('editorView:', editorView)
     editorView.revealLineInCenter(nextChange.modifiedStartLineNumber);
   }
 }

@@ -14,18 +14,29 @@
     "start:example:eof": "bash -c 'electron . ./examples/file1.js <(cat <<\"EOF\"\nnew content here\nwith multiple lines\nEOF\n)'",
     "start:test": "bash -c 'electron . ./examples/file1.js <(echo \"modified content\")'",
     "start:debug": "electron .",
-    "build": "electron-builder build",
-    "start:web": "PORT=3000 electron . --web"
+    "build": "electron-builder build && npm pack && echo '\nTo install globally, run: npm install -g monacomeld-*.tgz'",
+    "start:web": "PORT=3000 electron . --web",
+    "start:client": "electron . --no-server"
   },
   "build": {
     "appId": "com.monacomeld.app",
     "linux": {
-      "target": ["AppImage"],
+      "target": [
+        "AppImage"
+      ],
       "category": "Development",
       "maintainer": "SixZero <havliktomi@gmail.com>",
       "icon": "public/icon.png",
-      "artifactName": "${productName}-${version}.${ext}"
+      "artifactName": "${productName}-${version}.${ext}",
+      "executableName": "monacomeld",
+      "asarUnpack": [
+        "**/*.node",
+        "node_modules/monaco-editor/min/vs/**/*"
+      ]
     },
+    "asarUnpack": [
+      "node_modules/monaco-editor/min/vs/**/*"
+    ],
     "files": [
       "src/**/*",
       "public/**/*",
@@ -46,14 +57,15 @@
         ]
       }
     ],
-    "extraResources": [{
-      "from": "node_modules/electron/dist/locales",
-      "filter": ["en-US.pak"]
-    }],
-    "asar": true,
-    "asarUnpack": [
-      "node_modules/monaco-editor/min/vs/**/*"
+    "extraResources": [
+      {
+        "from": "node_modules/electron/dist/locales",
+        "filter": [
+          "en-US.pak"
+        ]
+      }
     ],
+    "asar": true,
     "compression": "normal",
     "removePackageScripts": true,
     "removePackageKeywords": true
@@ -63,6 +75,13 @@
     "electron-builder": "^24.13.3"
   },
   "dependencies": {
+    "electron-store": "^8.2.0",
     "monaco-editor": "^0.52.0"
+  },
+  "bin": {
+    "monacomeld": "./bin/monacomeld"
+  },
+  "peerDependencies": {
+    "electron": "^33.0.2"
   }
 }

@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+
+# Find the actual location of the installed package
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+# Different path resolution based on installation type
+if [[ $SCRIPT_DIR == *"node_modules/.bin"* ]]; then
+    # Global npm installation
+    APP_PATH="$SCRIPT_DIR/../../monacomeld"
+    ELECTRON_PATH="$(dirname $(which npm))/../lib/node_modules/electron/cli.js"
+elif [[ $SCRIPT_DIR == *"node_modules"* ]]; then
+    # Local npm installation
+    APP_PATH="$SCRIPT_DIR/../"
+    ELECTRON_PATH="$APP_PATH/node_modules/.bin/electron"
+else
+    # Development
+    APP_PATH="$SCRIPT_DIR/../"
+    ELECTRON_PATH="$APP_PATH/node_modules/.bin/electron"
+fi
+
+MAIN_PATH="$APP_PATH/src/main.js"
+
+# Ensure electron is available
+if [ ! -f "$ELECTRON_PATH" ]; then
+    # Try to find electron in alternative locations
+    ELECTRON_PATH="$(which electron)"
+    if [ -z "$ELECTRON_PATH" ]; then
+        echo "Error: electron not found. Please ensure electron is installed globally with:"
+        echo "npm install -g electron"
+        exit 1
+    fi
+fi
+
+# Execute electron with all passed arguments
+exec "$ELECTRON_PATH" "$MAIN_PATH" "$@"
+

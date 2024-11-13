@@ -2,29 +2,40 @@ import { currentPort } from '../config.js';
 import { sampleText1, sampleText2 } from "../samples.js";
 
 export function createEmptyState(container, createDiffEditor) {
+  // Create wrapper div to contain all elements
+  const wrapper = document.createElement('div');
+  wrapper.style.cssText = `
+    padding: 20px;
+    height: calc(100% - 40px);
+    overflow: auto;
+  `;
+  
   // Create message element
   const messageDiv = document.createElement('div');
   messageDiv.style.cssText = `
     text-align: center;
-    color: #888;
-    margin-top: 40px;
+    color: #d4d4d4;
+    margin-top: 20px;
     font-family: system-ui, -apple-system, sans-serif;
+    font-size: 16px;
   `;
   messageDiv.textContent = 'There are no diffs to show';
   
-  // Create curl help text
+  // Create curl help text with better readability
   const helpDiv = document.createElement('div');
   helpDiv.style.cssText = `
-    text-align: center;
-    color: #666;
+    text-align: left;
+    color: #d4d4d4;
     margin: 20px auto;
     max-width: 800px;
-    font-family: monospace;
+    font-family: 'SF Mono', Monaco, Consolas, monospace;
     background: #1e1e1e;
     padding: 20px;
     border-radius: 4px;
     white-space: pre-wrap;
     line-height: 1.5;
+    font-size: 14px;
+    border: 1px solid #383838;
   `;
   helpDiv.textContent = `To send a diff via curl:
 
@@ -65,12 +76,7 @@ curl -X POST http://localhost:${currentPort}/diff \\
   button.onmouseout = () => button.style.background = '#2d2d2d';
   
   button.onclick = () => {
-    // Remove empty state elements
-    messageDiv.remove();
-    helpDiv.remove();
-    button.remove();
-    
-    // Create example diff editor
+    wrapper.remove(); // Remove the wrapper instead of individual elements
     createDiffEditor(
       'container',
       sampleText1,
@@ -81,7 +87,11 @@ curl -X POST http://localhost:${currentPort}/diff \\
     );
   };
   
-  container.appendChild(messageDiv);
-  container.appendChild(helpDiv);
-  container.appendChild(button);
+  // Append elements to wrapper first
+  wrapper.appendChild(messageDiv);
+  wrapper.appendChild(helpDiv);
+  wrapper.appendChild(button);
+  
+  // Then append wrapper to container
+  container.appendChild(wrapper);
 }

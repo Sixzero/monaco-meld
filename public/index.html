@@ -8,11 +8,25 @@
     <style>
       html, body { 
         margin: 0; 
-        background-color: #1e1e1e;  /* Monaco's vs-dark theme background color */
+        padding: 0;
+        background-color: #282c34;  /* One Dark theme background color */
       }
       #container { 
-        width: 100vw;
-        height: 100vh;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+      }
+      @font-face {
+        font-family: 'SF Mono';
+        src: local('SF Mono');
+      }
+      @font-face {
+        font-family: 'Menlo';
+        src: local('Menlo');
+      }
+      @font-face {
+        font-family: 'Consolas';
+        src: local('Consolas');
       }
     </style>
   </head>

@@ -4,6 +4,10 @@ const path = require('path');
 const fs = require('fs');
 const http = require('http');
 const url = require('url');
+const Store = require('electron-store'); // Add near the top with other requires
+
+// Add file watcher map
+const fileWatchers = new Map();
 
 let mainWindow;
 let diffContents = null;
@@ -13,6 +17,9 @@ let isQuitting = false;  // Add flag to track if we're actually quitting
 let server = null;
 let port = process.env.PORT || 3000;
 let sseClients = new Set(); // Store SSE clients
+
+// Add after requires
+const store = new Store();
 
 app.commandLine.appendSwitch('log-level', '3');
 
@@ -101,10 +108,24 @@ function parseProcessInput() {
   };
 }
 
+// Modify createWindow function
 function createWindow() {
-  mainWindow = new BrowserWindow({
+  // Get stored bounds or use defaults
+  const defaultBounds = {
     width: 1800,
-    height: 800,
+    height: 800
+  };
+  
+  const bounds = store.get('windowBounds', defaultBounds);
+  
+  // Ensure minimum size
+  const width = Math.max(bounds.width, 800);
+  const height = Math.max(bounds.height, 600);
+  
+  mainWindow = new BrowserWindow({
+    ...bounds,
+    width,
+    height,
     webPreferences: { 
       worldSafeExecuteJavaScript: true,
       nodeIntegration: false,
@@ -116,6 +137,19 @@ function createWindow() {
 
   mainWindow.loadFile('public/index.html');
   mainWindow.on('close', handleWindowClose);
+  
+  // Save window size and position when it's resized or moved
+  mainWindow.on('resize', () => {
+    if (!mainWindow.isMaximized()) {
+      store.set('windowBounds', mainWindow.getBounds());
+    }
+  });
+  
+  mainWindow.on('move', () => {
+    if (!mainWindow.isMaximized()) {
+      store.set('windowBounds', mainWindow.getBounds());
+    }
+  });
 }
 
 // Modify the web server function
@@ -164,7 +198,7 @@ function startWebServer() {
       req.on('end', () => {
         try {
           const { content, path } = JSON.parse(body);
-          console.log('path:', path)
+          console.log('Save path:', path)
           
           if (!path) {
             res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -197,8 +231,6 @@ function startWebServer() {
         try {
           const data = JSON.parse(body);
           const pwd = data.pwd || process.cwd();
-          console.log('data.pwd:', data.pwd)
-          console.log('pwd:', pwd)
           
           // Only resolve paths if both pwd and path exist
           if (data.leftPath) {
@@ -207,8 +239,9 @@ function startWebServer() {
             if (!data.leftContent) {
               data.leftContent = readFileContent(data.leftPath);
             }
+            // Setup watcher for left file
+            setupFileWatcher(resolvedLeftPath);
           }
-          console.log('data.leftPath:', data.leftPath)
           
           if (data.rightPath) {
             const resolvedRightPath = resolveFilePath(data.rightPath, pwd);
@@ -216,8 +249,9 @@ function startWebServer() {
             if (!data.rightContent) {
               data.rightContent = readFileContent(data.rightPath);
             }
+            // Setup watcher for right file
+            setupFileWatcher(resolvedRightPath);
           }
-          console.log('data.rightPath:', data.rightPath)
 
           const id = Date.now().toString();
           diffHistory.set(id, data);
@@ -321,12 +355,43 @@ function startWebServer() {
   });
 }
 
+// Add function to setup file watcher
+function setupFileWatcher(filePath) {
+  if (!filePath || fileWatchers.has(filePath)) return;
+
+  try {
+    const watcher = fs.watch(filePath, (eventType, filename) => {
+      if (eventType === 'change') {
+        const content = readFileContent(filePath);
+        if (content !== null) {
+          // Notify all connected clients about the file change
+          sseClients.forEach(client => {
+            client.write(`data: ${JSON.stringify({
+              type: 'fileChange',
+              path: filePath,
+              content
+            })}\n\n`);
+          });
+        }
+      }
+    });
+
+    fileWatchers.set(filePath, watcher);
+    console.log(`Watching file: ${filePath}`);
+  } catch (err) {
+    console.error(`Error setting up watcher for ${filePath}:`, err);
+  }
+}
+
 // Modify the existing app startup to always run web server
+const noServer = process.argv.includes('--no-server');
 const webMode = process.argv.includes('--web');
 
 app.whenReady().then(async () => {
-  // Always start the web server
-  startWebServer();
+  // Only start web server if not disabled
+  if (!noServer) {
+    startWebServer();
+  }
   
   // Parse input files before loading the window
   try {
@@ -342,6 +407,12 @@ app.whenReady().then(async () => {
 
 // Add cleanup
 app.on('window-all-closed', () => {
+  // Close all file watchers
+  for (const [path, watcher] of fileWatchers) {
+    watcher.close();
+  }
+  fileWatchers.clear();
+  
   if (server) {
     server.close();
   }

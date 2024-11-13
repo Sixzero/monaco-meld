@@ -59,6 +59,10 @@ curl -X POST http://localhost:3000/diff \
     "rightPath": "file2.js"
   }'
 
+To connect to an existing web server instead of starting a new one:
+```
+./monacomeld-1.0.0.AppImage --no-server
+```
 ## Building
 
 ```sh
@@ -78,14 +82,20 @@ sudo apt install libfuse2
 
 As mentioned in the reference documentation, the problem is that Ubuntu 24.04 implemented new restrictions for AppImage apps, which restricts the use of sandboxes.
 
-The solution is to lift the restrictions that Ubuntu 24.04 implements in the AppImages.
+If you encounter sandbox-related errors like:
+```
+FATAL:setuid_sandbox_host.cc(163)] The SUID sandbox helper binary was found...
+```
 
+You can either:
+1. Run with the --no-sandbox flag (less secure but works everywhere):
 ```sh
-sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-# to deactivate restrictions
+meld-pro --no-sandbox
+```
 
-sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=1
-# to activate restrictions
+2. Or properly configure the sandbox (recommended for production):
+```sh
+sudo sysctl -w kernel.unprivileged_userns_clone=1
 ```
 
 ## Known Issues

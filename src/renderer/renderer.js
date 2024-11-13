@@ -1,7 +1,9 @@
-import { setupEditorCommands } from "./editor/commands.js";
+import { setupEditorCommands, navigateToNextChange } from "./editor/commands.js";
 import { showStatusNotification, notifyWithFocus } from "./ui/notifications.js";
 import { currentPort } from "./config.js";
 import {createEmptyState} from "./ui/emptyState.js"
+import {defineOneMonokaiTheme} from "./editor/theme.js"
+import {focusAndResizeEditor} from "./ui/functions.js"
 
 const isWeb = !window.electronAPI;
 const basePath = isWeb ? '' : '..';
@@ -34,8 +36,8 @@ function getLanguageFromPath(filePath) {
     java: 'java',
     cpp: 'cpp',
     c: 'cpp',
-    h: 'cpp',
     hpp: 'cpp',
+    h: 'cpp',
     cs: 'csharp',
     go: 'go',
     rs: 'rust',
@@ -54,26 +56,33 @@ function getLanguageFromPath(filePath) {
   return langMap[ext] || 'plaintext';
 }
 
-function createDiffEditor(containerId, leftContent, rightContent, language, leftPath, rightPath, diffId = null) { // Add diffId param
+
+function createDiffEditor(containerId, leftContent, rightContent, language, leftPath, rightPath, diffId = null) {
   const container = document.createElement('div');
-  container.style.minHeight = '100px';  // Minimum height
-  container.style.maxHeight = '500px';  // Maximum height
+  container.style.minHeight = '100px';
+  container.style.maxHeight = '80vh'; // Change to 80% of viewport height
+  container.style.height = '200px'; // Changed from 300px to 200px
   container.style.marginBottom = '30px';
   container.style.border = '1px solid #454545';
+  container.style.transition = 'height 0.3s ease'; // Smooth transition for height changes
   
   const titleBar = document.createElement('div');
   titleBar.style.padding = '5px 10px';
-  titleBar.style.backgroundColor = '#2d2d2d';
-  titleBar.style.borderBottom = '1px solid #454545';
+  titleBar.style.backgroundColor = '#21252b'; // Darker background to match theme
+  titleBar.style.borderBottom = '1px solid #181A1F';
   titleBar.style.display = 'flex';
   titleBar.style.justifyContent = 'space-between';
   titleBar.style.alignItems = 'center';
   
   const titleText = document.createElement('span');
-  titleText.textContent = `${leftPath ?? 'untitled'} ← ${rightPath ?? 'untitled'}`; // Changed ↔ to ←
-  titleText.style.color = '#e0e0e0';  // Light gray color for better visibility
-  titleText.classList.add('title-text');  // Add class for styling
-  
+  titleText.textContent = `${leftPath ?? 'untitled'} ← ${rightPath ?? 'untitled'}`;
+  titleText.style.cssText = `
+    color: #9da5b4;
+    font-family: 'SF Mono', 'Menlo', 'Consolas', 'DejaVu Sans Mono', monospace;
+    font-size: 12px;
+  `;
+  titleText.classList.add('title-text');
+
   // Add style for unsaved indicator
   const style = document.createElement('style');
   style.textContent = `
@@ -108,7 +117,7 @@ function createDiffEditor(containerId, leftContent, rightContent, language, left
   const modifiedModel = monaco.editor.createModel(rightContent, language);
 
   const diffEditor = monaco.editor.createDiffEditor(editorContainer, {
-    theme: "vs-dark",
+    theme: "one-monokai",  // Changed from vs-dark to one-monokai
     automaticLayout: true,
     renderSideBySide: true,
     originalEditable: true,
@@ -122,20 +131,23 @@ function createDiffEditor(containerId, leftContent, rightContent, language, left
     modified: modifiedModel,
   });
 
-  // Calculate content height
-  const lineHeight = 19; // Default Monaco line height
-  const headerHeight = 30; // Title bar height
-  const padding = 10; // Some padding
-  const leftLines = (leftContent?.match(/\n/g) || []).length + 1;
-  const rightLines = (rightContent?.match(/\n/g) || []).length + 1;
-  const lines = Math.max(leftLines, rightLines);
-  const contentHeight = Math.min(500, Math.max(100, lines * lineHeight + headerHeight + padding));
-  
-  container.style.height = `${contentHeight}px`;
+  // Replace the expandEditor function
+  const expandEditor = () => {
+    const model = window.diffModels.find(m => m.container === container);
+    if (model) {
+      focusAndResizeEditor(model);
+    }
+  };
 
-  // Setup editor commands
+  // Add focus handlers
   const modifiedEditor = diffEditor.getModifiedEditor();
   const originalEditor = diffEditor.getOriginalEditor();
+
+  // Add focus handlers to both editors
+  modifiedEditor.onDidFocusEditorWidget(() => expandEditor());
+  originalEditor.onDidFocusEditorWidget(() => expandEditor());
+
+  // Setup editor commands
   const closeCommand = setupEditorCommands(
     diffEditor,
     originalEditor,
@@ -147,6 +159,7 @@ function createDiffEditor(containerId, leftContent, rightContent, language, left
 
   // Store models globally
   window.diffModels = window.diffModels || [];
+  const isFirstDiff = window.diffModels.length === 0;
   window.diffModels.push({
     original: originalModel,
     modified: modifiedModel,
@@ -154,11 +167,28 @@ function createDiffEditor(containerId, leftContent, rightContent, language, left
     path: leftPath,
     initialContent: leftContent,
     container: container,
-    id: diffId // Store the ID
+    id: diffId
   });
 
   // Update window title
   document.title = `MonacoMeld - ${window.diffModels.length} files`;
+
+  // Update initial focus
+  setTimeout(() => {
+    diffEditor.layout();
+    
+    // If this is the first diff, expand it and focus
+    if (isFirstDiff) {
+      const model = window.diffModels[0];
+      focusAndResizeEditor(model);
+    }
+    
+    // Use navigateToNextChange to go to first change if exists
+    const changes = diffEditor.getLineChanges();
+    if (changes && changes.length > 0) {
+      navigateToNextChange(diffEditor, modifiedEditor);
+    }
+  }, 0);
 
   return { diffEditor, originalModel, modifiedModel };
 }
@@ -188,13 +218,35 @@ async function saveContent(content, editor, filePath) {
   }
 }
 
+function basename(filepath) {
+  return filepath.split(/[\\/]/).pop();
+}
+
 function setupEventSource() {
   const evtSource = new EventSource(`http://localhost:${currentPort}/events`);
   
   evtSource.onmessage = (event) => {
     try {
-      const newDiffContents = JSON.parse(event.data);
-      const diffs = Array.isArray(newDiffContents) ? newDiffContents : [newDiffContents];
+      const data = JSON.parse(event.data);
+      
+      // Handle file change events
+      if (data.type === 'fileChange') {
+        // Update all diff editors that use this file
+        window.diffModels.forEach(model => {
+          if (model.path === data.path) {
+            const currentContent = model.original.getValue();
+            // Only update if content actually changed
+            if (currentContent !== data.content) {
+              model.original.setValue(data.content);
+              showStatusNotification(`File ${basename(data.path)} was updated externally`, 'info');
+            }
+          }
+        });
+        return;
+      }
+
+      // Handle normal diff events
+      const diffs = Array.isArray(data) ? data : [data];
       
       // Remove empty state if it exists and we're getting diffs
       if (window.diffModels.length === 0 && diffs.length > 0) {
@@ -270,7 +322,6 @@ window.addEventListener("DOMContentLoaded", async () => {
   
   // Add window close prevention handler
   window.addEventListener('keydown', (e) => {
-    console.log('e:', e)
     // Check for Ctrl+W (Windows/Linux) or Cmd+W (Mac)
     if ((e.ctrlKey || e.metaKey) && e.code === 'KeyS') {
       e.preventDefault();
@@ -285,6 +336,8 @@ window.addEventListener("DOMContentLoaded", async () => {
   
   console.log("Loading Monaco...");
   require(["vs/editor/editor.main"], async function () {
+    defineOneMonokaiTheme();
+    monaco.editor.setTheme('one-monokai');
 
     try {
       const response = await fetch(`http://localhost:${currentPort}/diff`);
