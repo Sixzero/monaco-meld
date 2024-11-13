@@ -63,6 +63,24 @@ To connect to an existing web server instead of starting a new one:
 ```
 ./monacomeld-1.0.0.AppImage --no-server
 ```
+
+## Installation
+
+### Global Installation
+
+# Install globally
+npm install -g electron
+npm install -g monacomeld-*.tgz
+
+# Or if you want to build from source:
+git clone https://github.com/SixZero/monaco-meld
+cd monaco-meld
+npm install
+npm run build
+npm install -g .
+
+### Running
+
 ## Building
 
 ```sh

@@ -4,33 +4,50 @@
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # Different path resolution based on installation type
-if [[ $SCRIPT_DIR == *"node_modules/.bin"* ]]; then
+if [[ $SCRIPT_DIR == *"/.nvm/"* ]]; then
+    # NVM installation
+    NVM_DIR=$(dirname $(dirname $(dirname $(dirname $(dirname $SCRIPT_DIR)))))
+    APP_PATH="$NVM_DIR/.nvm/versions/node/$(node -v)/lib/node_modules/monacomeld"
+    ELECTRON_PATH="$(which electron)"
+elif [[ $SCRIPT_DIR == *"node_modules/.bin"* ]]; then
     # Global npm installation
-    APP_PATH="$SCRIPT_DIR/../../monacomeld"
-    ELECTRON_PATH="$(dirname $(which npm))/../lib/node_modules/electron/cli.js"
+    NODE_ROOT=$(dirname $(dirname $(dirname $SCRIPT_DIR)))
+    APP_PATH="$NODE_ROOT/lib/node_modules/monacomeld"
+    ELECTRON_PATH="$(which electron)"
 elif [[ $SCRIPT_DIR == *"node_modules"* ]]; then
     # Local npm installation
     APP_PATH="$SCRIPT_DIR/../"
-    ELECTRON_PATH="$APP_PATH/node_modules/.bin/electron"
+    ELECTRON_PATH="$(which electron)"
 else
     # Development
     APP_PATH="$SCRIPT_DIR/../"
-    ELECTRON_PATH="$APP_PATH/node_modules/.bin/electron"
+    ELECTRON_PATH="$(which electron)"
 fi
 
 MAIN_PATH="$APP_PATH/src/main.js"
 
-# Ensure electron is available
-if [ ! -f "$ELECTRON_PATH" ]; then
-    # Try to find electron in alternative locations
-    ELECTRON_PATH="$(which electron)"
-    if [ -z "$ELECTRON_PATH" ]; then
-        echo "Error: electron not found. Please ensure electron is installed globally with:"
-        echo "npm install -g electron"
-        exit 1
-    fi
+# Debug path resolution
+echo "Resolved paths:"
+echo "SCRIPT_DIR: $SCRIPT_DIR"
+echo "APP_PATH: $APP_PATH"
+echo "MAIN_PATH: $MAIN_PATH"
+
+# Verify main.js exists
+if [ ! -f "$MAIN_PATH" ]; then
+    echo "Error: Cannot find main.js at $MAIN_PATH"
+    exit 1
 fi
 
-# Execute electron with all passed arguments
-exec "$ELECTRON_PATH" "$MAIN_PATH" "$@"
+# Ensure electron is available
+if [ -z "$ELECTRON_PATH" ]; then
+    echo "Error: electron not found. Please ensure electron is installed globally with:"
+    echo "npm install -g electron"
+    exit 1
+fi
 
+
+# Pass APP_PATH as environment variable
+export APP_PATH
+
+# Execute electron with all passed arguments
+exec "$ELECTRON_PATH" "$MAIN_PATH" "--no-sandbox" "$@"

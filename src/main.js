@@ -6,6 +6,9 @@ const http = require('http');
 const url = require('url');
 const Store = require('electron-store'); // Add near the top with other requires
 
+// Near the top, after requires
+const APP_PATH = process.env.APP_PATH || path.join(__dirname, '..');
+
 // Add file watcher map
 const fileWatchers = new Map();
 
@@ -64,10 +67,9 @@ function resolveFilePath(filePath, pwd) {
 function parseProcessInput() {
   const args = process.argv;
   
-  // Get the effective arguments, skipping the executable path
-  let effectiveArgs = args[0].includes('monacomeld') ? args.slice(1) : args.slice(2);
+  // Get the effective arguments, skipping electron and main.js paths
+  let effectiveArgs = args.slice(2); // Skip 'electron' and 'main.js'
   effectiveArgs = effectiveArgs.filter(arg => !arg.startsWith('--'))
-  console.log('effectiveArgs:', effectiveArgs)
 
   if (effectiveArgs.length === 0) {
     console.log('No input files specified');
@@ -135,7 +137,8 @@ function createWindow() {
     }
   });
 
-  mainWindow.loadFile('public/index.html');
+  // Use APP_PATH for loading the index.html
+  mainWindow.loadFile(path.join(APP_PATH, 'public/index.html'));
   mainWindow.on('close', handleWindowClose);
   
   // Save window size and position when it's resized or moved
@@ -316,7 +319,8 @@ function startWebServer() {
       filePath = filePath.replace('/public/', './public/');
     }
     
-    const fullPath = path.join(__dirname, '..', filePath.startsWith('./') ? filePath.substring(2) : filePath.substring(1));
+    // Use APP_PATH for resolving files
+    const fullPath = path.join(APP_PATH, filePath.startsWith('./') ? filePath.substring(2) : filePath.substring(1));
     
     try {
       const content = fs.readFileSync(fullPath);
