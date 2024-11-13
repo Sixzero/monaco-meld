@@ -151,11 +151,11 @@ function setupKeybindings(diffEditor, editor) {
     }
   );
 
-  // Update close command to use Alt+W instead of Ctrl+W
-  editor.addCommand(
-    monaco.KeyMod.Alt | monaco.KeyCode.KeyW,
-    createCloseCommand(null, diffEditor)
-  );
+  // Add all three close combinations
+  const closeHandler = createCloseCommand(null, diffEditor);
+  editor.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.KeyW, closeHandler);
+  editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyW, closeHandler);
+  editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyQ, closeHandler);
 
   // Transfer chunk commands
   editor.addCommand(

@@ -139,6 +139,9 @@ function createWindow() {
 
   // Use APP_PATH for loading the index.html
   mainWindow.loadFile(path.join(APP_PATH, 'public/index.html'));
+  
+  // Add window handlers after window creation
+  setupWindowHandlers(mainWindow);
   mainWindow.on('close', handleWindowClose);
   
   // Save window size and position when it's resized or moved
@@ -387,7 +390,36 @@ function setupFileWatcher(filePath) {
   }
 }
 
-// Modify the existing app startup to always run web server
+// Add before-input-event handler to catch Ctrl+Q
+function setupWindowHandlers(window) {
+  window.webContents.on('before-input-event', async (event, input) => {
+    // Catch Ctrl+Q or Cmd+Q
+    if ((input.control || input.meta) && input.key.toLowerCase() === 'q') {
+      // Check if there are any diffs open
+      const hasDiffs = await window.webContents.executeJavaScript('window.diffModels?.length > 0');
+      
+      if (!hasDiffs) {
+        // If no diffs, show confirmation dialog
+        const { response } = await dialog.showMessageBox(window, {
+          type: 'question',
+          buttons: ['Exit', 'Cancel'],
+          defaultId: 1,
+          cancelId: 1,
+          title: 'Confirm Exit',
+          message: 'The server is still running and listening for diff requests. Do you want to exit?',
+          detail: 'You can keep the app running to receive diffs from curl commands.',
+        });
+
+        if (response === 0) { // Exit
+          isQuitting = true;
+          app.quit();
+        }
+      }
+      // If there are diffs, let the editor handle it through its own commands
+    }
+  });
+}
+
 const noServer = process.argv.includes('--no-server');
 const webMode = process.argv.includes('--web');
 
@@ -425,12 +457,16 @@ app.on('window-all-closed', () => {
   }
 });
 
-// Add window close handler
-app.on('before-quit', () => {
-  isQuitting = true;
+// Modify the app.on('before-quit') handler
+app.on('before-quit', (event) => {
+  // Only set quitting if we're actually handling the close
+  if (!isQuitting) {
+    event.preventDefault();
+    handleWindowClose({ preventDefault: () => {} });
+  }
 });
 
-// Handle window close event
+// Add window close handler
 function handleWindowClose(event) {
   if (isQuitting) return;
   

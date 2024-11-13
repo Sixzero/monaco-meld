@@ -6,8 +6,8 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 # Different path resolution based on installation type
 if [[ $SCRIPT_DIR == *"/.nvm/"* ]]; then
     # NVM installation
-    NVM_DIR=$(dirname $(dirname $(dirname $(dirname $(dirname $SCRIPT_DIR)))))
-    APP_PATH="$NVM_DIR/.nvm/versions/node/$(node -v)/lib/node_modules/monacomeld"
+    NVM_DIR=$(dirname $SCRIPT_DIR)
+    APP_PATH="$NVM_DIR/lib/node_modules/monacomeld"
     ELECTRON_PATH="$(which electron)"
 elif [[ $SCRIPT_DIR == *"node_modules/.bin"* ]]; then
     # Global npm installation
