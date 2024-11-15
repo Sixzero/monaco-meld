@@ -163,7 +163,7 @@ function startWebServer() {
   server = http.createServer(async (req, res) => {
     // Enable CORS
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE'); // Added DELETE
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
     // Add health check endpoint
@@ -346,7 +346,7 @@ function startWebServer() {
       res.writeHead(200, { 
         'Content-Type': contentType,
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, DELETE', // Added DELETE
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, DELETE',
         'Access-Control-Allow-Headers': 'Content-Type'
       });
       res.end(content);

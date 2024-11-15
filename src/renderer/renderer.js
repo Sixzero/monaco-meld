@@ -1,9 +1,10 @@
 import { setupEditorCommands, navigateToNextChange } from "./editor/commands.js";
 import { showStatusNotification, notifyWithFocus } from "./ui/notifications.js";
 import { currentPort } from "./config.js";
-import {createEmptyState} from "./ui/emptyState.js"
-import {defineOneMonokaiTheme} from "./editor/theme.js"
-import {focusAndResizeEditor} from "./ui/functions.js"
+import { createEmptyState } from "./ui/emptyState.js";
+import { defineOneMonokaiTheme } from "./editor/theme.js";
+import { focusAndResizeEditor } from "./ui/functions.js";
+import { ConnectionStatus } from "./ui/connectionStatus.js";
 
 const isWeb = !window.electronAPI;
 const basePath = isWeb ? '' : '..';
@@ -60,15 +61,15 @@ function getLanguageFromPath(filePath) {
 function createDiffEditor(containerId, leftContent, rightContent, language, leftPath, rightPath, diffId = null) {
   const container = document.createElement('div');
   container.style.minHeight = '100px';
-  container.style.maxHeight = '80vh'; // Change to 80% of viewport height
-  container.style.height = '200px'; // Changed from 300px to 200px
+  container.style.maxHeight = '80vh';
+  container.style.height = '200px';
   container.style.marginBottom = '30px';
   container.style.border = '1px solid #454545';
-  container.style.transition = 'height 0.3s ease'; // Smooth transition for height changes
+  container.style.transition = 'height 0.3s ease';
   
   const titleBar = document.createElement('div');
   titleBar.style.padding = '5px 10px';
-  titleBar.style.backgroundColor = '#21252b'; // Darker background to match theme
+  titleBar.style.backgroundColor = '#21252b';
   titleBar.style.borderBottom = '1px solid #181A1F';
   titleBar.style.display = 'flex';
   titleBar.style.justifyContent = 'space-between';
@@ -101,7 +102,7 @@ function createDiffEditor(containerId, leftContent, rightContent, language, left
   closeButton.style.fontSize = '20px';
   closeButton.style.cursor = 'pointer';
   closeButton.style.padding = '0 5px';
-  closeButton.title = 'Close (Alt+W)'; // Updated shortcut hint
+  closeButton.title = 'Close (Alt+W)';
   
   titleBar.appendChild(titleText);
   titleBar.appendChild(closeButton);
@@ -117,7 +118,7 @@ function createDiffEditor(containerId, leftContent, rightContent, language, left
   const modifiedModel = monaco.editor.createModel(rightContent, language);
 
   const diffEditor = monaco.editor.createDiffEditor(editorContainer, {
-    theme: "one-monokai",  // Changed from vs-dark to one-monokai
+    theme: "one-monokai",
     automaticLayout: true,
     renderSideBySide: true,
     originalEditable: true,
@@ -225,6 +226,10 @@ function basename(filepath) {
 function setupEventSource() {
   const evtSource = new EventSource(`http://localhost:${currentPort}/events`);
   
+  evtSource.onopen = () => {
+    connectionStatus.updateStatus('connected');
+  };
+  
   evtSource.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data);
@@ -313,12 +318,17 @@ function setupEventSource() {
   
   evtSource.onerror = (err) => {
     console.error('SSE connection error:', err);
+    connectionStatus.updateStatus('disconnected');
   };
+  return evtSource;
 }
 
 window.addEventListener("DOMContentLoaded", async () => {
   // Store models globally for each diff
   window.diffModels = [];
+  
+  // Create connection status instance
+  const connectionStatus = new ConnectionStatus();
   
   // Add window close prevention handler
   window.addEventListener('keydown', (e) => {
@@ -342,6 +352,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     try {
       const response = await fetch(`http://localhost:${currentPort}/diff`);
       const diffContents = await response.json();
+      connectionStatus.updateStatus('connected');
 
       // Convert single diff to array format for consistency
       const diffs = Array.isArray(diffContents) ? diffContents : [diffContents];
@@ -378,6 +389,7 @@ window.addEventListener("DOMContentLoaded", async () => {
 
     } catch (err) {
       console.error("Error initializing Monaco:", err);
+      connectionStatus.updateStatus('disconnected');
       createEmptyState(document.getElementById('container'), createDiffEditor);
     }
     
