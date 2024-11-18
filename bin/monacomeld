@@ -20,7 +20,7 @@ elif [[ $SCRIPT_DIR == *"node_modules"* ]]; then
     ELECTRON_PATH="$(which electron)"
 else
     # Development
-    APP_PATH="$SCRIPT_DIR/../"
+    APP_PATH="$SCRIPT_DIR/../lib/node_modules/monacomeld"
     ELECTRON_PATH="$(which electron)"
 fi
 
