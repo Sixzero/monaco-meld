@@ -41,15 +41,16 @@ EOF
 ### Web Mode Usage
 
 In web mode, you can also send diffs via HTTP:
-
+```
 curl -X POST http://localhost:3000/diff \
   -H "Content-Type: application/json" \
   -d '{
     "leftPath": "examples/file1.js",
     "rightPath": "examples/file2.js"
   }'
-
+```
 Or with direct content:
+```
 curl -X POST http://localhost:3000/diff \
   -H "Content-Type: application/json" \
   -d '{
@@ -58,6 +59,7 @@ curl -X POST http://localhost:3000/diff \
     "leftPath": "file1.js",
     "rightPath": "file2.js"
   }'
+```
 
 To connect to an existing web server instead of starting a new one:
 ```
