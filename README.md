@@ -63,7 +63,7 @@ curl -X POST http://localhost:3000/diff \
 
 To connect to an existing web server instead of starting a new one:
 ```
-./monacomeld-1.0.0.AppImage --no-server
+monacomeld --no-server
 ```
 
 ## Installation
