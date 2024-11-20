@@ -16,11 +16,17 @@ export class ConnectionStatus {
       display: flex;
       align-items: center;
       gap: 5px;
+      pointer-events: none; // Make the div click-through by default
     `;
     this.element.title = 'Click to retry connection';
     document.body.appendChild(this.element);
     
-    this.element.addEventListener('click', () => this.retry());
+    // Create inner clickable element for the status
+    this.statusElement = document.createElement('span');
+    this.statusElement.style.pointerEvents = 'auto'; // Re-enable pointer events for status text
+    this.element.appendChild(this.statusElement);
+    
+    this.statusElement.addEventListener('click', () => this.retry());
     this.updateStatus('connecting');
   }
 
@@ -44,8 +50,8 @@ export class ConnectionStatus {
     };
     
     const state = states[status];
-    this.element.textContent = state.text;
-    this.element.style.color = state.color;
+    this.statusElement.textContent = state.text;
+    this.statusElement.style.color = state.color;
     this.element.style.background = state.background;
     this.currentStatus = status;
   }

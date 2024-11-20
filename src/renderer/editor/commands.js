@@ -62,11 +62,13 @@ export function createCloseCommand(container, diffEditor) {
       const hasUnmergedChanges = changes.length > 0;
       
       if (hasUnsavedChanges || hasUnmergedChanges) {
-        let message = 'Do you want to save changes?';
-        if (hasUnmergedChanges) {
-          message = hasUnsavedChanges ? 
-            'There are unsaved changes and unmerged diffs. Do you want to save changes before quit?' :
-            'There are unmerged diffs. Are you sure you want to close?';
+        let message;
+        if (hasUnsavedChanges && hasUnmergedChanges) {
+          message = 'There are both UNSAVED changes and UNMERGED diffs. What would you like to do?';
+        } else if (hasUnsavedChanges) {
+          message = 'There are unsaved changes. Would you like to save before closing?';
+        } else {
+          message = 'There are unmerged diffs. Are you sure you want to close?';
         }
         
         const dialogOptions = {
@@ -76,7 +78,7 @@ export function createCloseCommand(container, diffEditor) {
           cancelId: 2,
           noLink: true,
           type: 'question',
-          title: 'Save Changes',
+          title: 'Close File',
           normalizeAccessKeys: true,
           buttonStyles: [
             { color: '#1e8e3e', primary: true },
@@ -85,17 +87,20 @@ export function createCloseCommand(container, diffEditor) {
           ]
         };
         
-        const result = await window.electronAPI?.showSaveDialog?.(dialogOptions) ?? window.confirm(message);
-        if (result === true) {
-          hasUnsavedChanges && await saveFile(model);
-          // We don't want to save and want to just exit with unmerged diffs.
-        } else if (result === 0) { // Save
+        // For web, show confirm with both save and close without save options
+        const result = window.electronAPI?.showSaveDialog?.(dialogOptions) ?? 
+          (window.confirm('Do you want to save and exit?') ? 0 : // User clicked OK -> Save
+          window.confirm('Close without saving?') ? 1 : // User clicked OK -> Close without saving
+          2); // User clicked Cancel -> Cancel
+          
+        if (result === 0) { // Save
           if (!await saveFile(model)) return false;
-        } else if (result === 2 || result === false) { // Cancel
+        } else if (result === 2) { // Cancel
           return false;
         }
+        // result === 1 means Close Without Saving, so we continue with closing
       }
-      
+
       // Send delete request if we have an ID
       if (model.id) {
         try {
@@ -187,7 +192,10 @@ function setupKeybindings(diffEditor, editor) {
         model.original === editor.getModel() || model.modified === editor.getModel()
       );
       if (index !== -1) {
-        window.diffModels[index].original.undo();
+        // Check which editor triggered the undo and use the appropriate model
+        const isModified = model.modified === editor.getModel();
+        const modelToUndo = isModified ? window.diffModels[index].modified : window.diffModels[index].original;
+        modelToUndo.undo();
       }
     }
   );

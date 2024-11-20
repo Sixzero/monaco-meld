@@ -130,9 +130,17 @@ export function defineOneMonokaiTheme() {
       'editorSuggestWidget.border': '#181A1F',
       'editorSuggestWidget.selectedBackground': '#2c313a',
       
-      // Diff editor specific
-      'diffEditor.insertedTextBackground': '#00809B33',
+      // Diff editor specific - Updated with slightly toned down colors and 45% opacity
+      'diffEditor.insertedTextBackground': '#2d992d73',  // Softer green with 45% opacity
+      'diffEditor.removedTextBackground': '#cc353573',   // Softer red with 45% opacity
+      'diffEditor.insertedLineBackground': '#2d992d73',  // Softer green with 45% opacity
+      'diffEditor.removedLineBackground': '#cc353573',   // Softer red with 45% opacity
+      'diffEditor.diagonalFill': '#282C34',
       'diffEditor.border': '#181A1F',
+      'diffEditorGutter.insertedLineBackground': '#2db52c73',  // Softer highlight green with 45% opacity
+      'diffEditorGutter.removedLineBackground': '#e6404073',   // Softer highlight red with 45% opacity
+      'diffEditorOverview.insertedForeground': '#2db52c',      // Solid softer green
+      'diffEditorOverview.removedForeground': '#e64040',       // Solid softer red
       
       // UI elements
       'scrollbarSlider.background': '#4E566680',
