@@ -22,17 +22,17 @@ A drop in replacement for meld with monaco diff. A lightweight Electron based ap
 
 Basic file comparison:
 ```sh
-./monacomeld-1.0.0.AppImage file1.js file2.js
+monacomeld file1.js file2.js
 ```
 
 Compare file with stdin content:
 ```sh
-echo "modified content" | ./monacomeld-1.0.0.AppImage file1.js -
+echo "modified content" | ./monacomeld file1.js -
 ```
 
 Compare with multiline content:
 ```sh
-./monacomeld-1.0.0.AppImage file1.js - <<'EOF'
+monacomeld file1.js - <<'EOF'
 new content here
 with multiple lines
 EOF
@@ -66,11 +66,39 @@ To connect to an existing web server instead of starting a new one:
 
 ## Installation
 
-### Global Installation
-
-# Install globally
+### Option 1: Install Pre-built Package
+# Install electron globally first (required)
+```
 npm install -g electron
+```
+
+# Install the pre-built package
+
+```
 npm install -g monacomeld-*.tgz
+```
+
+### Option 2: Build and Install from Source
+
+```sh
+# Clone the repository
+git clone https://github.com/SixZero/monaco-meld
+cd monaco-meld
+
+# Install dependencies and build
+npm install
+npm run build
+
+# Install globally from the built source
+npm install -g .
+```
+
+### Requirements
+
+Some might need to run .appImages on Ubuntu 24.04:
+```sh
+sudo apt install libfuse2
+```
 
 # Or if you want to build from source:
 git clone https://github.com/SixZero/monaco-meld
@@ -108,7 +136,7 @@ FATAL:setuid_sandbox_host.cc(163)] The SUID sandbox helper binary was found...
 You can either:
 1. Run with the --no-sandbox flag (less secure but works everywhere):
 ```sh
-meld-pro --no-sandbox
+monacomeld --no-sandbox
 ```
 
 2. Or properly configure the sandbox (recommended for production):
@@ -126,7 +154,7 @@ sudo sysctl -w kernel.unprivileged_userns_clone=1
 
 1. Start the app in web mode on the remote server:
 ```sh
-./monacomeld-1.0.0.AppImage --web
+monacomeld --web
 ```
 
 2. Set up SSH port forwarding from your local machine:
@@ -141,5 +169,5 @@ http://localhost:3000
 
 You can specify a different port with the PORT environment variable:
 ```sh
-PORT=8080 ./monacomeld-1.0.0.AppImage --web
+PORT=8080 monacomeld --web
 ```
