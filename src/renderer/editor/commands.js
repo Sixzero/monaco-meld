@@ -71,27 +71,23 @@ export function createCloseCommand(container, diffEditor) {
           message = 'There are unmerged diffs. Are you sure you want to close?';
         }
         
-        const dialogOptions = {
-          message,
-          buttons: ['Save', 'Close Without Saving', 'Cancel'],
-          defaultId: 0,
-          cancelId: 2,
-          noLink: true,
-          type: 'question',
-          title: 'Close File',
-          normalizeAccessKeys: true,
-          buttonStyles: [
-            { color: '#1e8e3e', primary: true },
-            {},
-            {}
-          ]
-        };
-        
-        // For web, show confirm with both save and close without save options
-        const result = window.electronAPI?.showSaveDialog?.(dialogOptions) ?? 
-          (window.confirm('Do you want to save and exit?') ? 0 : // User clicked OK -> Save
+        let result;
+        if (window.electronAPI?.showSaveDialog) {
+          result = await window.electronAPI.showSaveDialog({
+            message,
+            buttons: ['Save', 'Close Without Saving', 'Cancel'],
+            defaultId: 0,
+            cancelId: 2,
+            noLink: true,
+            type: 'question',
+            title: 'Close File'
+          });
+        } else {
+          // Fallback for web
+          result = window.confirm('Do you want to save and exit?') ? 0 : // User clicked OK -> Save
           window.confirm('Close without saving?') ? 1 : // User clicked OK -> Close without saving
-          2); // User clicked Cancel -> Cancel
+          2;
+        }
           
         if (result === 0) { // Save
           if (!await saveFile(model)) return false;

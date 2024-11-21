@@ -13,4 +13,5 @@ ipcRenderer.on('console-error', (event, ...args) => {
 contextBridge.exposeInMainWorld('electronAPI', {
   port: process.env.PORT || '3000',
   focusWindow: () => ipcRenderer.invoke('focus-window'),
+  showSaveDialog: (options) => ipcRenderer.invoke('show-save-dialog', options)
 });

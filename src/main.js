@@ -547,3 +547,18 @@ ipcMain.handle('focus-window', () => {
     }
   }
 });
+
+// Add near the top with other ipcMain handlers
+ipcMain.handle('show-save-dialog', async (event, options) => {
+  const { response } = await dialog.showMessageBox(mainWindow, {
+    type: options.type || 'question',
+    buttons: options.buttons || ['Save', 'Close Without Saving', 'Cancel'],
+    defaultId: options.defaultId || 0,
+    cancelId: options.cancelId || 2,
+    noLink: options.noLink || true,
+    title: options.title || 'Save Changes',
+    message: options.message || 'Do you want to save the changes?',
+    normalizeAccessKeys: options.normalizeAccessKeys || true
+  });
+  return response;
+});
