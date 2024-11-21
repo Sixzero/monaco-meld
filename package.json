@@ -16,7 +16,8 @@
     "start:debug": "electron .",
     "build": "electron-builder build && npm pack && echo '\nTo install globally, run: npm install -g monacomeld-*.tgz'",
     "start:web": "PORT=3000 electron . --web",
-    "start:client": "electron . --no-server"
+    "start:client": "electron . --no-server",
+    "dev": "electron . --devtools"
   },
   "build": {
     "appId": "com.monacomeld.app",

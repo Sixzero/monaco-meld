@@ -8,6 +8,7 @@ const Store = require('electron-store'); // Add near the top with other requires
 
 // Near the top, after requires
 const APP_PATH = process.env.APP_PATH || path.join(__dirname, '..');
+const port = process.env.PORT || '3000';  // Make sure port is defined at the top level
 
 // Add file watcher map
 const fileWatchers = new Map();
@@ -18,7 +19,6 @@ let diffHistory = new Map(); // Add diff history storage
 let originalFilePath = null;
 let isQuitting = false;  // Add flag to track if we're actually quitting
 let server = null;
-let port = process.env.PORT || 3000;
 let sseClients = new Set(); // Store SSE clients
 
 // Add after requires
@@ -139,6 +139,11 @@ function createWindow() {
 
   // Use APP_PATH for loading the index.html
   mainWindow.loadFile(path.join(APP_PATH, 'public/index.html'));
+  
+  // Open devtools if --devtools flag is present
+  if (process.argv.includes('--devtools')) {
+    mainWindow.webContents.openDevTools({ mode: 'right' });
+  }
   
   // Add window handlers after window creation
   setupWindowHandlers(mainWindow);
