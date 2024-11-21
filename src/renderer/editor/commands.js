@@ -185,13 +185,12 @@ function setupKeybindings(diffEditor, editor) {
     monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyZ,
     () => {
       const index = window.diffModels.findIndex(model => 
-        model.original === editor.getModel() || model.modified === editor.getModel()
+        model.editor === diffEditor
       );
       if (index !== -1) {
-        // Check which editor triggered the undo and use the appropriate model
-        const isModified = model.modified === editor.getModel();
-        const modelToUndo = isModified ? window.diffModels[index].modified : window.diffModels[index].original;
-        modelToUndo.undo();
+        const model = window.diffModels[index];
+        const diffOp = new DiffOperation(model.original, model.modified);
+        diffOp.undoLastOperation();
       }
     }
   );
