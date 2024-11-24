@@ -15,6 +15,7 @@
     "start:test": "bash -c 'electron . ./examples/file1.js <(echo \"modified content\")'",
     "start:debug": "electron .",
     "build": "electron-builder build && npm pack && echo '\nTo install globally, run: npm install -g monacomeld-*.tgz'",
+    "install-global": "npm run build && npm install -g .",
     "start:web": "PORT=3000 electron . --web",
     "start:client": "electron . --no-server",
     "dev": "electron . --devtools"

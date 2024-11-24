@@ -35,9 +35,14 @@ export class DiffOperation {
 
   acceptCurrentChange(currentLine, changes) {
     const currentChange = this.findChangeForLine(currentLine, changes);
-    if (!currentChange) return;
+    
+    if (!currentChange) {
+      console.log('No change found for line:', currentLine);
+      return;
+    }
 
     this.originalModel._fields.isPerformingAcceptChange = true;
+
 
     // Store the current state before changes
     const originalRange = {
@@ -50,13 +55,14 @@ export class DiffOperation {
     const modifiedRange = {
       startLineNumber: currentChange.modifiedStartLineNumber,
       startColumn: 1,
-      endLineNumber: currentChange.modifiedEndLineNumber,
-      endColumn: this.modifiedModel.getLineMaxColumn(currentChange.modifiedEndLineNumber)
+      endLineNumber: currentChange.modifiedEndLineNumber || 1,
+      endColumn: currentChange.modifiedEndLineNumber > 0 ? this.modifiedModel.getLineMaxColumn(currentChange.modifiedEndLineNumber) : 1
+      
     };
 
+
     // Store original content before change
-    const originalContent = currentChange.originalStartLineNumber ?
-      this.originalModel.getValueInRange(originalRange) : '';
+    const originalContent = currentChange.originalStartLineNumber ? this.originalModel.getValueInRange(originalRange) : '';
     const modifiedContent = this.getModifiedText(currentChange);
 
     // Apply the change
@@ -78,16 +84,9 @@ export class DiffOperation {
     const lastOp = this.originalModel._fields.operationStack.pop();
     if (lastOp.type === 'acceptChange') {
       // Restore original content
-      this.originalModel.pushEditOperations([], [{
-        range: lastOp.original.range,
-        text: lastOp.original.content
-      }], () => null);
-
+      this.originalModel.undo()
       // Restore modified content
-      this.modifiedModel.pushEditOperations([], [{
-        range: lastOp.modified.range,
-        text: lastOp.modified.content
-      }], () => null);
+      this.modifiedModel.undo()
     } else if (lastOp.type === 'regularEdit') {
       // Undo only the model where the edit occurred
       const modelToUndo = lastOp.model === 'original' ?
@@ -109,7 +108,7 @@ export class DiffOperation {
       startLineNumber: change.modifiedStartLineNumber,
       startColumn: 1,
       endLineNumber: change.modifiedEndLineNumber,
-      endColumn: this.modifiedModel.getLineMaxColumn(change.modifiedEndLineNumber)
+      endColumn: change.modifiedEndLineNumber > 0 ? this.modifiedModel.getLineMaxColumn(change.modifiedEndLineNumber) : 1
     });
   }
 
@@ -149,7 +148,7 @@ export class DiffOperation {
       startLineNumber: change.originalStartLineNumber,
       startColumn: 1,
       endLineNumber: change.originalEndLineNumber + 1,
-      endColumn: 1
+      endColumn: 1,
     } : {
       startLineNumber: change.originalStartLineNumber,
       startColumn: 1,

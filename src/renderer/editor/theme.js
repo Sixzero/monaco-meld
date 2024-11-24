@@ -3,9 +3,9 @@ export function defineOneMonokaiTheme() {
     base: 'vs-dark',
     inherit: true,
     rules: [
-      // Comments
-      { token: 'comment', foreground: '5c6370', fontStyle: 'italic' },
-      { token: 'html.doctype', foreground: '5c6370', fontStyle: 'italic' },
+      // Comments - Updated to be more visible
+      { token: 'comment', foreground: '8b949e', fontStyle: 'italic' },  // Changed from 5c6370 to 8b949e
+      { token: 'html.doctype', foreground: '8b949e', fontStyle: 'italic' },  // Changed from 5c6370 to 8b949e
       
       // Strings
       { token: 'string', foreground: '98c379' },
@@ -61,8 +61,8 @@ export function defineOneMonokaiTheme() {
       { token: 'markup.deleted', foreground: 'c678dd' },
       { token: 'markup.inserted', foreground: 'e5c07b' },
       { token: 'markup.changed', foreground: '98c379' },
-      // Basic syntax - preserved from original
-      { token: 'comment', foreground: '676F7D', fontStyle: 'italic' },
+      // Basic syntax - preserved from original - Updated comment color
+      { token: 'comment', foreground: '8b949e', fontStyle: 'italic' },  // Changed from 676F7D to 8b949e
       { token: 'string', foreground: 'E5C07B' },
       { token: 'string.template', foreground: 'E5C07B' },
       { token: 'constant.numeric', foreground: 'C678DD' },
