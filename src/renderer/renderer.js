@@ -5,6 +5,7 @@ import { createEmptyState } from "./ui/emptyState.js";
 import { defineOneMonokaiTheme } from "./editor/theme.js";
 import { focusAndResizeEditor } from "./ui/functions.js";
 import { ConnectionStatus } from "./ui/connectionStatus.js";
+import { normalizeContent } from "./editor/contentNormalizer.js";
 
 const isWeb = !window.electronAPI;
 const basePath = isWeb ? '' : '..';
@@ -59,10 +60,8 @@ function getLanguageFromPath(filePath) {
 
 
 function createDiffEditor(containerId, leftContent, rightContent, language, leftPath, rightPath, diffId = null) {
-  // Clean up content - remove leading newline from rightContent if it exists and leftContent doesn't have it
-  if (rightContent?.startsWith('\n') && !leftContent?.startsWith('\n')) {
-    rightContent = rightContent.substring(1);
-  }
+  // Use the normalizer
+  rightContent = normalizeContent(leftContent, rightContent);
 
   const container = document.createElement('div');
   container.style.minHeight = '100px';
