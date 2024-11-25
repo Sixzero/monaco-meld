@@ -478,48 +478,62 @@ function handleWindowClose(event) {
   event.preventDefault();
   mainWindow.webContents.executeJavaScript('window.hasUnsavedChanges()')
     .then(async hasChanges => {
+      console.log('Has unsaved changes:', hasChanges); // Added debug log
+      
       if (!hasChanges) {
         isQuitting = true;
         app.quit();
         return;
       }
 
+      // Only show Save option if there are actual changes
+      const buttons = hasChanges ? 
+        ['Save', 'Close Without Saving', 'Cancel'] :
+        ['Close', 'Cancel'];
+
       const { response } = await dialog.showMessageBox(mainWindow, {
         type: 'question',
-        buttons: ['Save', 'Close Without Saving', 'Cancel'],
+        buttons,
         defaultId: 0,
-        cancelId: 2,
+        cancelId: buttons.length - 1,
         noLink: true,
-        title: 'Save Changes',
-        message: 'Do you want to save the changes?',
+        title: hasChanges ? 'Save Changes' : 'Confirm Close',
+        message: hasChanges ? 'Do you want to save the changes?' : 'Do you want to close the view?',
         normalizeAccessKeys: true,
-        buttonStyles: [
+        buttonStyles: hasChanges ? [
           { color: '#1e8e3e', primary: true }, // Green color for Save
           {}, // Default for Close Without Saving
           {}  // Default for Cancel
-        ]
+        ] : undefined
       });
 
-      if (response === 0) { // Save
-        try {
-          const content = await mainWindow.webContents.executeJavaScript('window.getLeftContent()');
-          if (!originalFilePath) {
-            console.error('No file path to save to');
-            return;
+      if (hasChanges) {
+        if (response === 0) { // Save
+          try {
+            const content = await mainWindow.webContents.executeJavaScript('window.getLeftContent()');
+            if (!originalFilePath) {
+              console.error('No file path to save to');
+              return;
+            }
+            fs.writeFileSync(originalFilePath, content, 'utf-8');
+            isQuitting = true;
+            app.quit();
+          } catch (err) {
+            console.error('Error saving file:', err);
+            await dialog.showMessageBox(mainWindow, {
+              type: 'error',
+              message: 'Failed to save file: ' + err.message
+            });
           }
-          fs.writeFileSync(originalFilePath, content, 'utf-8');
+        } else if (response === 1) { // Close Without Saving
           isQuitting = true;
           app.quit();
-        } catch (err) {
-          console.error('Error saving file:', err);
-          await dialog.showMessageBox(mainWindow, {
-            type: 'error',
-            message: 'Failed to save file: ' + err.message
-          });
         }
-      } else if (response === 1) { // Close Without Saving
-        isQuitting = true;
-        app.quit();
+      } else {
+        if (response === 0) { // Close
+          isQuitting = true;
+          app.quit();
+        }
       }
       // Cancel does nothing, window stays open
     })

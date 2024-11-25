@@ -40,10 +40,47 @@ async function saveFile(model) {
   }
 }
 
-// Create a reusable close command
+// Create a model state checker class following Single Responsibility Principle
+class DiffModelState {
+  constructor(model, diffEditor) {
+    this.model = model;
+    this.diffEditor = diffEditor;
+  }
+
+  hasUnsavedChanges() {
+    const currentContent = this.model.original.getValue();
+    return this.model.initialContent !== currentContent;
+  }
+
+  hasUnmergedChanges() {
+    return (this.diffEditor.getLineChanges() || []).length > 0;
+  }
+}
+
+// Separate dialog handling (Single Responsibility)
+async function showCloseDialog(message, buttons) {
+  if (window.electronAPI?.showSaveDialog) {
+    return window.electronAPI.showSaveDialog({
+      message,
+      buttons,
+      defaultId: 0,
+      cancelId: buttons.length - 1,
+      noLink: true,
+      type: 'question',
+      title: 'Close File'
+    });
+  }
+  // Web fallback
+  if (buttons.length === 3) { // Save dialog
+    return window.confirm('Do you want to save and exit?') ? 0 : 
+           window.confirm('Close without saving?') ? 1 : 2;
+  }
+  return window.confirm(message) ? 0 : 1; // Simple confirm
+}
+
+// Simplified close command following KISS
 export function createCloseCommand(container, diffEditor) {
   return async (e) => {
-    // Prevent any default close behavior
     e?.preventDefault?.();
     
     const originalModel = diffEditor.getOriginalEditor().getModel();
@@ -52,90 +89,68 @@ export function createCloseCommand(container, diffEditor) {
     const index = window.diffModels.findIndex(model => 
       model.original === originalModel || model.modified === modifiedModel
     );
-    if (index !== -1) {
-      const model = window.diffModels[index];
-      const currentContent = model.original.getValue();
-      const changes = diffEditor.getLineChanges() || [];
+    
+    if (index === -1) return false;
+
+    const model = window.diffModels[index];
+    const state = new DiffModelState(model, diffEditor);
+    
+    // Handle closing based on state
+    if (state.hasUnsavedChanges()) {
+      const result = await showCloseDialog(
+        'There are unsaved changes. Would you like to save before closing?',
+        ['Save', 'Close Without Saving', 'Cancel']
+      );
       
-      // Check for unsaved changes or remaining diffs
-      const hasUnsavedChanges = model.initialContent !== undefined && currentContent !== model.initialContent;
-      const hasUnmergedChanges = changes.length > 0;
+      if (result === 0 && !await saveFile(model)) return false; // Save failed
+      if (result === 2) return false; // Cancelled
+    } else if (state.hasUnmergedChanges()) {
+      const result = await showCloseDialog(
+        'There are unmerged diffs. Are you sure you want to close?',
+        ['Close', 'Cancel']
+      );
       
-      if (hasUnsavedChanges || hasUnmergedChanges) {
-        let message;
-        if (hasUnsavedChanges && hasUnmergedChanges) {
-          message = 'There are both UNSAVED changes and UNMERGED diffs. What would you like to do?';
-        } else if (hasUnsavedChanges) {
-          message = 'There are unsaved changes. Would you like to save before closing?';
-        } else {
-          message = 'There are unmerged diffs. Are you sure you want to close?';
-        }
-        
-        let result;
-        if (window.electronAPI?.showSaveDialog) {
-          result = await window.electronAPI.showSaveDialog({
-            message,
-            buttons: ['Save', 'Close Without Saving', 'Cancel'],
-            defaultId: 0,
-            cancelId: 2,
-            noLink: true,
-            type: 'question',
-            title: 'Close File'
-          });
-        } else {
-          // Fallback for web
-          result = window.confirm('Do you want to save and exit?') ? 0 : // User clicked OK -> Save
-          window.confirm('Close without saving?') ? 1 : // User clicked OK -> Close without saving
-          2;
-        }
-          
-        if (result === 0) { // Save
-          if (!await saveFile(model)) return false;
-        } else if (result === 2) { // Cancel
-          return false;
-        }
-        // result === 1 means Close Without Saving, so we continue with closing
-      }
-
-      // Send delete request if we have an ID
-      if (model.id) {
-        try {
-          const response = await fetch(`http://localhost:${currentPort}/diff/${model.id}`, {
-            method: 'DELETE',
-          });
-          if (!response.ok) {
-            console.error('Failed to delete diff:', await response.text());
-          }
-        } catch (err) {
-          console.error('Error deleting diff:', err);
-        }
-      }
-
-      // Cleanup
-      diffEditor.dispose();
-      window.diffModels.splice(index, 1);
-      model.container.remove();
-      originalModel.dispose();
-      modifiedModel.dispose();
-      
-      // Update window title
-      updateWindowTitle();
-
-      // Update focus after closing
-      if (window.diffModels.length > 0) {
-        const nextIndex = Math.min(index, window.diffModels.length - 1);
-        const nextModel = window.diffModels[nextIndex];
-        const nextModifiedEditor = focusAndResizeEditor(nextModel);
-        
-        setTimeout(() => {
-          setupKeybindings(nextModel.editor, nextModifiedEditor);
-        }, 0);
-      }
-
-      return true;
+      if (result === 1) return false; // Cancelled
     }
-    return false;
+
+    // Clean up the diff
+    await cleanupDiff(model, diffEditor, index);
+    return true;
   };
+}
+
+// Separate cleanup logic (Single Responsibility)
+async function cleanupDiff(model, diffEditor, index) {
+  if (model.id) {
+    try {
+      const response = await fetch(`http://localhost:${currentPort}/diff/${model.id}`, {
+        method: 'DELETE'
+      });
+      if (!response.ok) {
+        console.error('Failed to delete diff:', await response.text());
+      }
+    } catch (err) {
+      console.error('Error deleting diff:', err);
+    }
+  }
+
+  // Cleanup resources
+  diffEditor.dispose();
+  window.diffModels.splice(index, 1);
+  model.container.remove();
+  model.original.dispose();
+  model.modified.dispose();
+  
+  updateWindowTitle();
+
+  // Handle focus
+  if (window.diffModels.length > 0) {
+    const nextIndex = Math.min(index, window.diffModels.length - 1);
+    const nextModel = window.diffModels[nextIndex];
+    const nextModifiedEditor = focusAndResizeEditor(nextModel);
+    
+    setTimeout(() => setupKeybindings(nextModel.editor, nextModifiedEditor), 0);
+  }
 }
 
 // Update setupKeybindings function
