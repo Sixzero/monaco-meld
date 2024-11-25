@@ -6,6 +6,7 @@ import { defineOneMonokaiTheme } from "./editor/theme.js";
 import { focusAndResizeEditor } from "./ui/functions.js";
 import { ConnectionStatus } from "./ui/connectionStatus.js";
 import { normalizeContent } from "./editor/contentNormalizer.js";
+import { showReadyStatus } from "./ui/readyStatus.js";
 
 const isWeb = !window.electronAPI;
 const basePath = isWeb ? '' : '..';
@@ -135,6 +136,14 @@ function createDiffEditor(containerId, leftContent, rightContent, language, left
     original: originalModel,
     modified: modifiedModel,
   });
+
+  // Add ready status indicator with change tracking
+  const readyStatus = showReadyStatus(container, diffEditor);
+  
+  // Listen for changes in both editors
+  originalModel.onDidChangeContent(readyStatus.update);
+  modifiedModel.onDidChangeContent(readyStatus.update);
+  
 
   // Replace the expandEditor function
   const expandEditor = () => {
