@@ -1,4 +1,4 @@
-import { setupEditorCommands, navigateToNextChange } from "./editor/commands.js";
+import { setupEditorCommands, navigateToNextChange, updateWindowTitle, updateModelContent } from "./editor/commands.js";
 import { showStatusNotification, notifyWithFocus } from "./ui/notifications.js";
 import { currentPort } from "./config.js";
 import { createEmptyState } from "./ui/emptyState.js";
@@ -59,6 +59,11 @@ function getLanguageFromPath(filePath) {
 
 
 function createDiffEditor(containerId, leftContent, rightContent, language, leftPath, rightPath, diffId = null) {
+  // Clean up content - remove leading newline from rightContent if it exists and leftContent doesn't have it
+  if (rightContent?.startsWith('\n') && !leftContent?.startsWith('\n')) {
+    rightContent = rightContent.substring(1);
+  }
+
   const container = document.createElement('div');
   container.style.minHeight = '100px';
   container.style.maxHeight = '80vh';
@@ -242,8 +247,8 @@ function setupEventSource() {
             const currentContent = model.original.getValue();
             // Only update if content actually changed
             if (currentContent !== data.content) {
-              model.original.setValue(data.content);
-              showStatusNotification(`File ${basename(data.path)} was updated externally`, 'info');
+            updateModelContent(model, data.content)
+            showStatusNotification(`File ${basename(data.path)} was updated externally`, 'info');
             }
           }
         });

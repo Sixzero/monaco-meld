@@ -6,7 +6,6 @@ import { focusAndResizeEditor } from '../ui/functions.js';
 // Add save helper function
 async function saveFile(model) {
   try {
-    // Add safety check for path
     if (!model?.path) {
       console.error('No file path available for save');
       showStatusNotification('No file path available', 'error');
@@ -19,14 +18,12 @@ async function saveFile(model) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
         content,
-        path: model.path  // Ensure we use the path stored with the model
+        path: model.path
       })
     });
     
     if (response.ok) {
-      model.initialContent = content;
-      model.container.querySelector('.title-text')?.classList.remove('unsaved');
-      updateWindowTitle();
+      updateModelContent(model, content); // Use the new function
       showStatusNotification('File saved successfully!', 'success');
       return true;
     }
@@ -38,6 +35,13 @@ async function saveFile(model) {
     showStatusNotification('Failed to save file!', 'error');
     return false;
   }
+}
+
+// Add new function for handling model content updates
+export function updateModelContent(model, content) {
+  model.initialContent = content;
+  model.container.querySelector('.title-text')?.classList.remove('unsaved');
+  updateWindowTitle();
 }
 
 // Create a model state checker class following Single Responsibility Principle
@@ -54,6 +58,16 @@ class DiffModelState {
 
   hasUnmergedChanges() {
     return (this.diffEditor.getLineChanges() || []).length > 0;
+  }
+
+  updateUnsavedIndicator() {
+    const hasChanges = this.hasUnsavedChanges();
+    const titleText = this.model.container.querySelector('.title-text');
+    if (hasChanges) {
+      titleText?.classList.add('unsaved');
+    } else {
+      titleText?.classList.remove('unsaved');
+    }
   }
 }
 
@@ -268,22 +282,17 @@ export function setupEditorCommands(diffEditor, originalEditor, modifiedEditor, 
     const index = window.diffModels.findIndex(model => model.editor === diffEditor);
     if (index !== -1) {
       const model = window.diffModels[index];
-      const hasChanges = model.initialContent !== model.original.getValue();
-      const titleText = container.querySelector('.title-text');
-      if (hasChanges) {
-        titleText?.classList.add('unsaved');
-      } else {
-        titleText?.classList.remove('unsaved');
-      }
+      const state = new DiffModelState(model, diffEditor);
+      state.updateUnsavedIndicator();
       updateWindowTitle();
     }
   });
 
-  return closeCommand; // Return for the close button
+  return closeCommand;
 }
 
 // Add window title update helper
-function updateWindowTitle() {
+export function updateWindowTitle() {
   const unsavedCount = window.diffModels.filter(model => 
     model.initialContent !== model.original.getValue()
   ).length;
