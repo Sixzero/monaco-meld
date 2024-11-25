@@ -43,6 +43,9 @@ export class DiffOperation {
 
     this.originalModel._fields.isPerformingAcceptChange = true;
 
+    // Open an undoable operation on both models
+    this.originalModel.pushStackElement();
+    this.modifiedModel.pushStackElement();
 
     // Store the current state before changes
     const originalRange = {
@@ -57,9 +60,7 @@ export class DiffOperation {
       startColumn: 1,
       endLineNumber: currentChange.modifiedEndLineNumber || 1,
       endColumn: currentChange.modifiedEndLineNumber > 0 ? this.modifiedModel.getLineMaxColumn(currentChange.modifiedEndLineNumber) : 1
-      
     };
-
 
     // Store original content before change
     const originalContent = currentChange.originalStartLineNumber ? this.originalModel.getValueInRange(originalRange) : '';
@@ -67,6 +68,10 @@ export class DiffOperation {
 
     // Apply the change
     this.applyChange(currentChange, modifiedContent);
+
+    // Close the undoable operation on both models
+    this.originalModel.pushStackElement();
+    this.modifiedModel.pushStackElement();
 
     this.originalModel._fields.isPerformingAcceptChange = false;
 
