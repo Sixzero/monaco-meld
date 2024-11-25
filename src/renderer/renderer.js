@@ -140,11 +140,6 @@ function createDiffEditor(containerId, leftContent, rightContent, language, left
   // Add ready status indicator with change tracking
   const readyStatus = showReadyStatus(container, diffEditor);
   
-  // Listen for changes in both editors
-  originalModel.onDidChangeContent(readyStatus.update);
-  modifiedModel.onDidChangeContent(readyStatus.update);
-  
-
   // Replace the expandEditor function
   const expandEditor = () => {
     const model = window.diffModels.find(m => m.container === container);
