@@ -290,7 +290,9 @@ function setupEventSource() {
             model.original.setValue(diff.leftContent);
           }
           if (diff.rightContent !== null) {
-            model.modified.setValue(diff.rightContent);
+            // Use the normalizer for consistency
+            const normalizedContent = normalizeContent(model.original.getValue(), diff.rightContent);
+            model.modified.setValue(normalizedContent);
           }
         } else {
           // Create new diff editor
