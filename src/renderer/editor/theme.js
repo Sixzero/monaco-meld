@@ -110,7 +110,7 @@ export function defineOneMonokaiTheme() {
     ],
     colors: {
       // Editor colors
-      'editor.background': '#282C34',
+      'editor.background': '#2b2b2b',  // Changed from '#282C34' to '#2b2b2b'
       'editor.foreground': '#ABB2BF',
       'editor.lineHighlightBackground': '#383E4A',
       'editor.selectionBackground': '#3E4451',

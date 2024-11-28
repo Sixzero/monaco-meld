@@ -126,10 +126,19 @@ function createDiffEditor(containerId, leftContent, rightContent, language, left
     theme: "one-monokai",
     automaticLayout: true,
     renderSideBySide: true,
-    originalEditable: true,
-    renderIndicators: true,
-    renderMarginRevertIcon: true,
+    originalEditable: false,
+    renderIndicators: false,
+    renderMarginRevertIcon: false,  // Changed from true to false to disable the revert arrow
     ignoreTrimWhitespace: false,
+    // Add these new options:
+    overviewRulerBorder: false,          // Hide overview ruler border
+    overviewRulerLanes: 0,               // Disable overview ruler lanes
+    // Add these options to disable the gutter markers
+    glyphMargin: true,
+    folding: false,
+    lineNumbers: 'on',
+    lineDecorationsWidth: 0,
+    lineNumbersMinChars: 3,
   });
 
   diffEditor.setModel({
