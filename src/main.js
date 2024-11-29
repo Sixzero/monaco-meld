@@ -350,6 +350,7 @@ function startWebServer() {
       
       res.writeHead(200, { 
         'Content-Type': contentType,
+        'Cache-Control': 'no-cache',
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, DELETE',
         'Access-Control-Allow-Headers': 'Content-Type'

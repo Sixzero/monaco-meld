@@ -1,5 +1,6 @@
 import { currentPort } from '../config.js';
 import { sampleText1, sampleText2 } from "../samples.js";
+import { apiBaseUrl } from '../config.js';
 
 export function createEmptyState(container, createDiffEditor) {
   // Create wrapper div to contain all elements
@@ -39,7 +40,7 @@ export function createEmptyState(container, createDiffEditor) {
   `;
   helpDiv.textContent = `To send a diff via curl:
 
-curl -X POST http://localhost:${currentPort}/diff \\
+curl -X POST ${apiBaseUrl}/diff \\
   -H "Content-Type: application/json" \\
   -d '{
     "leftPath": "path/to/save/file.js",
@@ -49,7 +50,7 @@ curl -X POST http://localhost:${currentPort}/diff \\
   }'
 
 # Or with relative paths from pwd:
-curl -X POST http://localhost:${currentPort}/diff \\
+curl -X POST ${apiBaseUrl}/diff \\
   -H "Content-Type: application/json" \\
   -d '{
     "leftPath": "./relative/path/file.js",

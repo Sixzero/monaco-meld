@@ -317,7 +317,7 @@ export function navigateToNextChange(diffEditor, editorView) {
   }
 }
 
-function navigateToPreviousChange(diffEditor, modifiedEditor) {
+export function navigateToPreviousChange(diffEditor, modifiedEditor) {
   const changes = diffEditor.getLineChanges();
   const currentLine = modifiedEditor.getPosition().lineNumber;
   const prevChange = [...(changes || [])]
@@ -333,7 +333,7 @@ function navigateToPreviousChange(diffEditor, modifiedEditor) {
   }
 }
 
-function acceptCurrentChange(diffEditor, modifiedEditor) {
+export function acceptCurrentChange(diffEditor, modifiedEditor) {
   const changes = diffEditor.getLineChanges();
   const currentLine = modifiedEditor.getPosition().lineNumber;
   

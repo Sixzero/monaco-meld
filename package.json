@@ -12,11 +12,12 @@
     "start": "electron .",
     "start:example": "electron . ./examples/file1.js ./examples/file2.js",
     "start:example:eof": "bash -c 'electron . ./examples/file1.js <(cat <<\"EOF\"\nnew content here\nwith multiple lines\nEOF\n)'",
-    "start:test": "bash -c 'electron . ./examples/file1.js <(echo \"modified content\")'",
+    "start:example:test": "bash -c 'electron . ./examples/file1.js <(echo \"modified content\")'",
     "start:debug": "electron .",
     "build": "electron-builder build && npm pack && echo '\nTo install globally, run: npm install -g monacomeld-*.tgz'",
     "install-global": "npm run build && npm install -g .",
-    "start:web": "PORT=3000 electron . --web",
+    "start:web_old": "PORT=3000 electron . --web",
+    "start:web": "react-scripts start",
     "start:client": "electron . --no-server",
     "dev": "electron . --devtools"
   },
@@ -74,7 +75,10 @@
   },
   "devDependencies": {
     "electron": "^33.0.2",
-    "electron-builder": "^24.13.3"
+    "electron-builder": "^24.13.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-scripts": "^5.0.1"
   },
   "dependencies": {
     "electron-store": "^8.2.0",
@@ -85,5 +89,17 @@
   },
   "peerDependencies": {
     "electron": "^33.0.2"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
   }
 }

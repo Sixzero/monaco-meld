@@ -1,12 +1,15 @@
-import { setupEditorCommands, navigateToNextChange, updateWindowTitle, updateModelContent } from "./editor/commands.js";
+import { setupEditorCommands, navigateToNextChange, updateWindowTitle, updateModelContent, acceptCurrentChange } from "./editor/commands.js";
 import { showStatusNotification, notifyWithFocus } from "./ui/notifications.js";
-import { currentPort } from "./config.js";
+import { apiBaseUrl, currentPort } from "./config.js";
 import { createEmptyState } from "./ui/emptyState.js";
 import { defineOneMonokaiTheme } from "./editor/theme.js";
 import { focusAndResizeEditor } from "./ui/functions.js";
 import { ConnectionStatus } from "./ui/connectionStatus.js";
 import { normalizeContent } from "./editor/contentNormalizer.js";
 import { showReadyStatus } from "./ui/readyStatus.js";
+import { isMobileWidth, createWidthWatcher, hasTouch } from './utils/browserDetection.js';
+import { SwipeHandler } from './utils/swipeHandler.js';
+import {createMobileNavigation} from './ui/mobileNavigation.js';
 
 const isWeb = !window.electronAPI;
 const basePath = isWeb ? '' : '..';
@@ -125,7 +128,12 @@ function createDiffEditor(containerId, leftContent, rightContent, language, left
   const diffEditor = monaco.editor.createDiffEditor(editorContainer, {
     theme: "one-monokai",
     automaticLayout: true,
-    renderSideBySide: true,
+    renderSideBySide: !isMobileWidth(), // Use width check instead
+    fontSize: isMobileWidth() ? 24 : 14,
+    lineHeight: isMobileWidth() ? 32 : 21,
+    letterSpacing: isMobileWidth() ? 0.5 : 0,
+    fontFamily: "'SF Mono', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
+    fontWeight: isMobileWidth() ? '500' : '400',
     originalEditable: false,
     renderIndicators: false,
     renderMarginRevertIcon: false,  // Changed from true to false to disable the revert arrow
@@ -146,6 +154,31 @@ function createDiffEditor(containerId, leftContent, rightContent, language, left
     modified: modifiedModel,
   });
 
+  // Watch for width changes and update editor layout
+  createWidthWatcher((isMobile) => {
+    diffEditor.updateOptions({
+      renderSideBySide: !isMobile,
+      fontSize: isMobile ? 24 : 14,
+      lineHeight: isMobile ? 32 : 21,
+      letterSpacing: isMobile ? 0.5 : 0,
+      fontWeight: isMobile ? '500' : '400'
+    });
+    diffEditor.layout();
+  });
+
+  // Apply font settings to both editors
+  const modifiedEditor = diffEditor.getModifiedEditor();
+  const originalEditor = diffEditor.getOriginalEditor();
+  
+  [modifiedEditor, originalEditor].forEach(editor => {
+    editor.updateOptions({
+      fontSize: isMobileWidth() ? 24 : 14,
+      lineHeight: isMobileWidth() ? 32 : 21,
+      letterSpacing: isMobileWidth() ? 0.5 : 0,
+      fontWeight: isMobileWidth() ? '500' : '400'
+    });
+  });
+
   // Add ready status indicator with change tracking
   const readyStatus = showReadyStatus(container, diffEditor);
   
@@ -158,8 +191,7 @@ function createDiffEditor(containerId, leftContent, rightContent, language, left
   };
 
   // Add focus handlers
-  const modifiedEditor = diffEditor.getModifiedEditor();
-  const originalEditor = diffEditor.getOriginalEditor();
+  
 
   // Add focus handlers to both editors
   modifiedEditor.onDidFocusEditorWidget(() => expandEditor());
@@ -208,13 +240,35 @@ function createDiffEditor(containerId, leftContent, rightContent, language, left
     }
   }, 0);
 
+  // Add swipe support for touch devices and mouse drag
+  const swipeHandler = new SwipeHandler(
+    container,
+    // Swipe left to reject
+    () => closeCommand({ preventDefault: () => {} }),
+    // Swipe right to accept
+    () => {
+      const currentLine = modifiedEditor.getPosition().lineNumber;
+      acceptCurrentChange(diffEditor, modifiedEditor);
+      // Move to next change after accepting
+      navigateToNextChange(diffEditor, modifiedEditor);
+    }
+  );
+
+  // Add mobile navigation buttons
+  if (isMobileWidth()) {
+    const mobileNav = createMobileNavigation(diffEditor, modifiedEditor);
+    if (mobileNav) {
+      document.body.appendChild(mobileNav);
+    }
+  }
+
   return { diffEditor, originalModel, modifiedModel };
 }
 
 
 async function saveContent(content, editor, filePath) {
   try {
-    const result = await fetch(`http://localhost:${currentPort}/save`, {
+    const result = await fetch(`${apiBaseUrl}/save`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content, path: filePath })
@@ -241,10 +295,13 @@ function basename(filepath) {
 }
 
 function setupEventSource() {
-  const evtSource = new EventSource(`http://localhost:${currentPort}/events`);
+  const evtSource = new EventSource(`${apiBaseUrl}/events`);
+  
+  // Move this line outside the function
+  const connectionStatus = window.connectionStatus;
   
   evtSource.onopen = () => {
-    connectionStatus.updateStatus('connected');
+    connectionStatus?.updateStatus('connected');
   };
   
   evtSource.onmessage = (event) => {
@@ -337,7 +394,7 @@ function setupEventSource() {
   
   evtSource.onerror = (err) => {
     console.error('SSE connection error:', err);
-    connectionStatus.updateStatus('disconnected');
+    connectionStatus?.updateStatus('disconnected');
   };
   return evtSource;
 }
@@ -346,8 +403,8 @@ window.addEventListener("DOMContentLoaded", async () => {
   // Store models globally for each diff
   window.diffModels = [];
   
-  // Create connection status instance
-  const connectionStatus = new ConnectionStatus();
+  // Create connection status instance and store it globally
+  window.connectionStatus = new ConnectionStatus();
   
   // Add window close prevention handler
   window.addEventListener('keydown', (e) => {
@@ -369,9 +426,9 @@ window.addEventListener("DOMContentLoaded", async () => {
     monaco.editor.setTheme('one-monokai');
 
     try {
-      const response = await fetch(`http://localhost:${currentPort}/diff`);
+      const response = await fetch(`${apiBaseUrl}/diff`);
       const diffContents = await response.json();
-      connectionStatus.updateStatus('connected');
+      window.connectionStatus.updateStatus('connected');
 
       // Convert single diff to array format for consistency
       const diffs = Array.isArray(diffContents) ? diffContents : [diffContents];
@@ -408,7 +465,7 @@ window.addEventListener("DOMContentLoaded", async () => {
 
     } catch (err) {
       console.error("Error initializing Monaco:", err);
-      connectionStatus.updateStatus('disconnected');
+      window.connectionStatus.updateStatus('disconnected');
       createEmptyState(document.getElementById('container'), createDiffEditor);
     }
     
