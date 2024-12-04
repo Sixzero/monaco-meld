@@ -22,7 +22,7 @@ export function showStatusNotification(message, type = 'success') {
   setTimeout(() => statusBarElement.remove(), 2000);
 }
 
-export async function notifyWithFocus(title, message, icon = '/public/favicon.ico') {
+export async function notifyWithFocus(title, message, icon = '/favicon.ico') {
   // Focus window if available
   if (window.electronAPI?.focusWindow) {
     await window.electronAPI.focusWindow();

@@ -2,7 +2,7 @@ import { setupEditorCommands, navigateToNextChange, updateWindowTitle, updateMod
 import { showStatusNotification, notifyWithFocus } from "./ui/notifications.js";
 import { apiBaseUrl, currentPort } from "./config.js";
 import { createEmptyState } from "./ui/emptyState.js";
-import { defineOneMonokaiTheme } from "./editor/theme.js";
+import { defineOneMonakaiTheme } from "./editor/theme.js";
 import { focusAndResizeEditor } from "./ui/functions.js";
 import { ConnectionStatus } from "./ui/connectionStatus.js";
 import { normalizeContent } from "./editor/contentNormalizer.js";
@@ -10,23 +10,12 @@ import { showReadyStatus } from "./ui/readyStatus.js";
 import { isMobileWidth, createWidthWatcher, hasTouch } from './utils/browserDetection.js';
 import { SwipeHandler } from './utils/swipeHandler.js';
 import {createMobileNavigation} from './ui/mobileNavigation.js';
+import { getMonaco } from './utils/importHelpers.js';
+
+let monacoInstance = null;
 
 const isWeb = !window.electronAPI;
 const basePath = isWeb ? '' : '..';
-
-// Configure Monaco loader first
-require.config({
-  paths: {
-    'vs': `${basePath}/node_modules/monaco-editor/min/vs`
-  }
-});
-
-// Setup Monaco environment before loading
-window.MonacoEnvironment = {
-  getWorkerUrl: function(moduleId, label) {
-    return `${basePath}/public/monaco-editor-worker-loader-proxy.js`;
-  }
-};
 
 function getLanguageFromPath(filePath) {
   if (!filePath) return 'plaintext';
@@ -122,10 +111,10 @@ function createDiffEditor(containerId, leftContent, rightContent, language, left
   container.appendChild(editorContainer);
   document.getElementById(containerId).appendChild(container);
 
-  const originalModel = monaco.editor.createModel(leftContent, language);
-  const modifiedModel = monaco.editor.createModel(rightContent, language);
+  const originalModel = monacoInstance.editor.createModel(leftContent, language);
+  const modifiedModel = monacoInstance.editor.createModel(rightContent, language);
 
-  const diffEditor = monaco.editor.createDiffEditor(editorContainer, {
+  const diffEditor = monacoInstance.editor.createDiffEditor(editorContainer, {
     theme: "one-monokai",
     automaticLayout: true,
     renderSideBySide: !isMobileWidth(), // Use width check instead
@@ -421,57 +410,56 @@ window.addEventListener("DOMContentLoaded", async () => {
   }, true); // Use capture phase to handle event before browser
   
   console.log("Loading Monaco...");
-  require(["vs/editor/editor.main"], async function () {
-    defineOneMonokaiTheme();
-    monaco.editor.setTheme('one-monokai');
+  monacoInstance = await getMonaco();
+  await defineOneMonakaiTheme();
+  monacoInstance.editor.setTheme('one-monokai');
 
-    try {
-      const response = await fetch(`${apiBaseUrl}/diff`);
-      const diffContents = await response.json();
-      window.connectionStatus.updateStatus('connected');
+  try {
+    const response = await fetch(`${apiBaseUrl}/diff`);
+    const diffContents = await response.json();
+    window.connectionStatus.updateStatus('connected');
 
-      // Convert single diff to array format for consistency
-      const diffs = Array.isArray(diffContents) ? diffContents : [diffContents];
-      
-      if (diffs.length === 0 || (diffs.length === 1 && !diffs[0].leftContent && !diffs[0].rightContent)) {
-        createEmptyState(document.getElementById('container'), createDiffEditor);
-      } else {
-        diffs.forEach((diff) => {
-          createDiffEditor(
-            'container',
-            diff.leftContent,
-            diff.rightContent,
-            getLanguageFromPath(diff.leftPath) || 
-            getLanguageFromPath(diff.rightPath) || 
-            'javascript',
-            diff.leftPath,
-            diff.rightPath,
-            diff.id
-          );
-        });
-      }
-
-      // Update hasUnsavedChanges to check all editors
-      window.hasUnsavedChanges = () => {
-        return window.diffModels.some(model => {
-          const currentContent = model.original.getValue();
-          return model.initialContent !== undefined && 
-                 currentContent !== model.initialContent;
-        });
-      };
-
-      // Update getLeftContent to get content from first editor
-      window.getLeftContent = () => window.diffModels[0]?.original.getValue() ?? '';
-
-    } catch (err) {
-      console.error("Error initializing Monaco:", err);
-      window.connectionStatus.updateStatus('disconnected');
-      createEmptyState(document.getElementById('container'), createDiffEditor);
-    }
+    // Convert single diff to array format for consistency
+    const diffs = Array.isArray(diffContents) ? diffContents : [diffContents];
     
-    setupEventSource();
+    if (diffs.length === 0 || (diffs.length === 1 && !diffs[0].leftContent && !diffs[0].rightContent)) {
+      createEmptyState(document.getElementById('container'), createDiffEditor);
+    } else {
+      diffs.forEach((diff) => {
+        createDiffEditor(
+          'container',
+          diff.leftContent,
+          diff.rightContent,
+          getLanguageFromPath(diff.leftPath) || 
+          getLanguageFromPath(diff.rightPath) || 
+          'javascript',
+          diff.leftPath,
+          diff.rightPath,
+          diff.id
+        );
+      });
+    }
 
-    // Focus on the original (left) editor
-    setTimeout(() => window.diffModels[0]?.editor.getModifiedEditor().focus(), 100);
-  });
+    // Update hasUnsavedChanges to check all editors
+    window.hasUnsavedChanges = () => {
+      return window.diffModels.some(model => {
+        const currentContent = model.original.getValue();
+        return model.initialContent !== undefined && 
+               currentContent !== model.initialContent;
+      });
+    };
+
+    // Update getLeftContent to get content from first editor
+    window.getLeftContent = () => window.diffModels[0]?.original.getValue() ?? '';
+
+  } catch (err) {
+    console.error("Error initializing Monaco:", err);
+    window.connectionStatus.updateStatus('disconnected');
+    createEmptyState(document.getElementById('container'), createDiffEditor);
+  }
+  
+  setupEventSource();
+
+  // Focus on the original (left) editor
+  setTimeout(() => window.diffModels[0]?.editor.getModifiedEditor().focus(), 100);
 });

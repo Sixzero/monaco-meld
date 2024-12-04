@@ -17,7 +17,7 @@
     "build": "electron-builder build && npm pack && echo '\nTo install globally, run: npm install -g monacomeld-*.tgz'",
     "install-global": "npm run build && npm install -g .",
     "start:web_old": "PORT=3000 electron . --web",
-    "start:web": "react-scripts start",
+    "start:web": "vite",
     "start:client": "electron . --no-server",
     "dev": "electron . --devtools"
   },
@@ -76,9 +76,8 @@
   "devDependencies": {
     "electron": "^33.0.2",
     "electron-builder": "^24.13.3",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-scripts": "^5.0.1"
+    "vite": "^6.0.1",
+    "vite-plugin-monaco-editor": "^1.1.0"
   },
   "dependencies": {
     "electron-store": "^8.2.0",

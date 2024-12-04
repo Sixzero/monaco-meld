@@ -2,9 +2,9 @@
 <html>
   <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-eval' 'unsafe-inline' http://localhost:* blob:; script-src 'self' 'unsafe-eval' 'unsafe-inline' blob:; style-src 'unsafe-inline' 'self'; worker-src blob: http://localhost:*; connect-src 'self' http://localhost:* ws://localhost:*">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-eval' 'unsafe-inline' http://localhost:* blob:; script-src 'self' 'unsafe-eval' 'unsafe-inline' blob:; style-src 'unsafe-inline' 'self'; worker-src blob: file: http://localhost:*; img-src 'self' data: blob:; connect-src 'self' http://localhost:* ws://localhost:*">
     <title>Monaco Meld</title>
-    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <style>
       html, body { 
         margin: 0; 
@@ -112,7 +112,17 @@
   </head>
   <body>
     <div id="container"></div>
-    <script src="../node_modules/monaco-editor/min/vs/loader.js"></script>
-    <script type="module" src="../src/renderer/renderer.js"></script>
+    <!-- <script src="../node_modules/monaco-editor/min/vs/loader.js"></script> -->
+    <!-- <script type="module" src="../src/renderer/renderer.js"></script> -->    
+    <script>
+      // Only load AMD loader in Electron environment
+      if (window.electronAPI) {
+        const script = document.createElement('script');
+        script.src = '../node_modules/monaco-editor/min/vs/loader.js';
+        script.onload = () => require.config({ paths: { vs: '../node_modules/monaco-editor/min/vs' }});
+        document.body.appendChild(script);
+      }
+    </script>
+    <script type="module" src="../src/index.js"></script>
   </body>
 </html>

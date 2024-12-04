@@ -38,7 +38,7 @@ export function createEmptyState(container, createDiffEditor) {
     font-size: 14px;
     border: 1px solid #383838;
   `;
-  helpDiv.textContent = `To send a diff via curl:
+  helpDiv.textContent = `To send a diff via curl: 
 
 curl -X POST ${apiBaseUrl}/diff \\
   -H "Content-Type: application/json" \\

@@ -2,6 +2,7 @@ import { DiffOperation } from "../diffOperations.js";
 import { currentPort } from '../config.js';
 import { showStatusNotification } from "../ui/notifications.js";
 import { focusAndResizeEditor } from '../ui/functions.js';
+import { getMonaco } from '../utils/importHelpers.js';
 
 // Add save helper function
 async function saveFile(model) {
@@ -168,7 +169,9 @@ async function cleanupDiff(model, diffEditor, index) {
 }
 
 // Update setupKeybindings function
-function setupKeybindings(diffEditor, editor) {
+async function setupKeybindings(diffEditor, editor) {
+  const monaco = await getMonaco();
+
   // Save command
   editor.addCommand(
     monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
