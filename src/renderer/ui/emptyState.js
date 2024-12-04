@@ -1,4 +1,3 @@
-import { currentPort } from '../config.js';
 import { sampleText1, sampleText2 } from "../samples.js";
 import { apiBaseUrl } from '../config.js';
 

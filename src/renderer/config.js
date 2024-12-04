@@ -2,26 +2,20 @@
 // Helper to determine if we're running in electron
 const isElectron = !!window.electronAPI;
 
-// Get port from different sources
-export const currentPort = window.location.port || '3000';
+// Get stored server URL from localStorage or use default
+const storedServerUrl = localStorage.getItem('monacomeld_server_url');
+export const defaultPort = window.location.port || '9000';
 
-// Determine base URL based on environment
-export const serverOrigin = isElectron ? 
-  `http://localhost:${currentPort}` : // Electron case
-  window.location.origin;             // Web case
+// Determine base URL based on environment and stored value
+export const serverOrigin = storedServerUrl || (isElectron ? 
+  `http://localhost:${defaultPort}` : // Electron case
+  window.location.origin);            // Web case
 
 // Get full base URL for API calls
-export const apiBaseUrl = `${serverOrigin}`;
+export const apiBaseUrl = serverOrigin;
 
-// Get port from different sources in order of priority:
-// 1. URL port (for web mode)
-// 2. Environment variable passed through electron
-// 3. Default port (3000)
-// export const currentPort = (() => {
-//   // Check if we're in electron context
-//   if (window.electronAPI) {
-//     return window.electronAPI.port || '3000';
-//   }
-//   // For web mode, use window.location.port or default
-//   return window.location.port || '3000';
-// })();
+// Function to update server URL
+export const updateServerUrl = (newUrl) => {
+  localStorage.setItem('monacomeld_server_url', newUrl);
+  window.location.reload(); // Reload to apply new URL
+};

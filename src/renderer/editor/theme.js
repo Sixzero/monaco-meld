@@ -1,4 +1,4 @@
-export function defineOneMonokaiTheme() {
+export async function defineOneMonakaiTheme() {
   monaco.editor.defineTheme('one-monokai', {
     base: 'vs-dark',
     inherit: true,

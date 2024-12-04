@@ -4,15 +4,20 @@ const path = require('path');
 const fs = require('fs');
 const http = require('http');
 const url = require('url');
+const { createAppMenu } = require('./menu');
 const Store = require('electron-store'); // Add near the top with other requires
 
 // Near the top, after requires
 const APP_PATH = process.env.APP_PATH || path.join(__dirname, '..');
-const port = process.env.PORT || '3000';  // Make sure port is defined at the top level
+const noServer = process.argv.includes('--no-server');
+const webMode = process.argv.includes('--web');
+const port = process.env.PORT || '9000';  // Make sure port is defined at the top level
+console.log('port:', port)
 
 // Add file watcher map
 const fileWatchers = new Map();
 
+let closedDiffs = new Set(); // Add missing closedDiffs definition
 let mainWindow;
 let diffContents = null;
 let diffHistory = new Map(); // Add diff history storage
@@ -137,6 +142,9 @@ function createWindow() {
     }
   });
 
+  // Update menu with window reference
+  createAppMenu(mainWindow, diffHistory, closedDiffs);
+  
   // Use APP_PATH for loading the index.html
   mainWindow.loadFile(path.join(APP_PATH, 'public/index.html'));
   
@@ -166,10 +174,17 @@ function createWindow() {
 // Modify the web server function
 function startWebServer() {
   server = http.createServer(async (req, res) => {
-    // Enable CORS
+    // Simple CORS headers for all requests
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Methods', '*');
+    res.setHeader('Access-Control-Allow-Headers', '*');
+
+    // Handle preflight
+    if (req.method === 'OPTIONS') {
+      res.writeHead(200);
+      res.end();
+      return;
+    }
 
     // Add health check endpoint
     if (req.url === '/health') {
@@ -190,8 +205,11 @@ function startWebServer() {
       console.log('New SSE client connected, total:', sseClients.size);
       
       // Send all stored diffs to new client
+      // Only send diffs that aren't closed
       for (const [id, diff] of diffHistory.entries()) {
-        res.write(`data: ${JSON.stringify({...diff, id})}\n\n`);
+        if (!closedDiffs.has(id)) {
+          res.write(`data: ${JSON.stringify({...diff, id})}\n\n`);
+        }
       }
       
       req.on('close', () => {
@@ -295,8 +313,18 @@ function startWebServer() {
     // Add endpoint to remove diff
     if (req.method === 'DELETE' && req.url.startsWith('/diff/')) {
       const id = req.url.split('/')[2];
+      console.log('Diff closed:', id)
       if (diffHistory.has(id)) {
-        diffHistory.delete(id);
+        const diff = diffHistory.get(id);
+        closedDiffs.add(id);
+        // Notify clients about deletion
+        sseClients.forEach(client => {
+          client.write(`data: ${JSON.stringify({
+            type: 'diffClosed',
+            id
+          })}\n\n`);
+        });
+        
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ status: 'ok' }));
       } else {
@@ -310,6 +338,27 @@ function startWebServer() {
     if (req.method === 'GET' && req.url === '/diff') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(diffContents || { leftContent: null, rightContent: null }));
+      return;
+    }
+
+    // Add endpoint to reopen diff
+    if (req.method === 'POST' && req.url.startsWith('/diff/reopen/')) {
+      const id = req.url.split('/')[3];
+      if (diffHistory.has(id) && closedDiffs.has(id)) {
+        closedDiffs.delete(id);
+        const diff = diffHistory.get(id);
+
+        // Notify all clients about reopened diff
+        sseClients.forEach(client => {
+          client.write(`data: ${JSON.stringify({...diff, id})}\n\n`);
+        });
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'ok' }));
+      } else {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Diff not found or not closed' }));
+      }
       return;
     }
 
@@ -375,18 +424,42 @@ function setupFileWatcher(filePath) {
   try {
     const watcher = fs.watch(filePath, (eventType, filename) => {
       if (eventType === 'change') {
-        const content = readFileContent(filePath);
-        if (content !== null) {
-          // Notify all connected clients about the file change
-          sseClients.forEach(client => {
-            client.write(`data: ${JSON.stringify({
-              type: 'fileChange',
-              path: filePath,
-              content
-            })}\n\n`);
-          });
+        // Check if file still exists before reading
+        if (fs.existsSync(filePath)) {
+          const content = readFileContent(filePath);
+          if (content !== null) {
+            console.log(`File changed: ${filePath}`);
+            
+            // Update content in diffHistory if it exists as leftPath
+            for (const [id, diff] of diffHistory.entries()) {
+              if (diff.leftPath === filePath) {
+                diff.leftContent = content;
+              }
+            }
+
+            // Notify all connected clients about the file change
+            sseClients.forEach(client => {
+              client.write(`data: ${JSON.stringify({
+                type: 'fileChange',
+                path: filePath,
+                content
+              })}\n\n`);
+            });
+          }
+        } else {
+          // File was deleted, clean up watcher
+          console.log(`File deleted: ${filePath}`);
+          watcher.close();
+          fileWatchers.delete(filePath);
         }
       }
+    });
+
+    // Handle watcher errors
+    watcher.on('error', (err) => {
+      console.error(`Watcher error for ${filePath}:`, err);
+      watcher.close();
+      fileWatchers.delete(filePath);
     });
 
     fileWatchers.set(filePath, watcher);
@@ -426,8 +499,6 @@ function setupWindowHandlers(window) {
   });
 }
 
-const noServer = process.argv.includes('--no-server');
-const webMode = process.argv.includes('--web');
 
 app.whenReady().then(async () => {
   // Only start web server if not disabled

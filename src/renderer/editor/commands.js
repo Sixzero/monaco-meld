@@ -1,5 +1,5 @@
 import { DiffOperation } from "../diffOperations.js";
-import { currentPort } from '../config.js';
+import { apiBaseUrl } from '../config.js';
 import { showStatusNotification } from "../ui/notifications.js";
 import { focusAndResizeEditor } from '../ui/functions.js';
 import { getMonaco } from '../utils/importHelpers.js';
@@ -14,7 +14,7 @@ async function saveFile(model) {
     }
 
     const content = model.original.getValue();
-    const response = await fetch(`http://localhost:${currentPort}/save`, {
+    const response = await fetch(`${apiBaseUrl}/save`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
@@ -40,6 +40,10 @@ async function saveFile(model) {
 
 // Add new function for handling model content updates
 export function updateModelContent(model, content) {
+  const currentContent = model.original.getValue();
+  if (currentContent !== content) {
+    model.original.setValue(content);
+  }
   model.initialContent = content;
   model.container.querySelector('.title-text')?.classList.remove('unsaved');
   updateWindowTitle();
@@ -94,7 +98,7 @@ async function showCloseDialog(message, buttons) {
 }
 
 // Simplified close command following KISS
-export function createCloseCommand(container, diffEditor) {
+export function createCloseCommand(diffEditor) {
   return async (e) => {
     e?.preventDefault?.();
     
@@ -138,7 +142,8 @@ export function createCloseCommand(container, diffEditor) {
 async function cleanupDiff(model, diffEditor, index) {
   if (model.id) {
     try {
-      const response = await fetch(`http://localhost:${currentPort}/diff/${model.id}`, {
+      console.log('`${apiBaseUrl}/diff/${model.id}`:', `${apiBaseUrl}/diff/${model.id}`)
+      const response = await fetch(`${apiBaseUrl}/diff/${model.id}`, {  // Use apiBaseUrl
         method: 'DELETE'
       });
       if (!response.ok) {
@@ -185,7 +190,7 @@ async function setupKeybindings(diffEditor, editor) {
   );
 
   // Add all three close combinations
-  const closeHandler = createCloseCommand(null, diffEditor);
+  const closeHandler = createCloseCommand(diffEditor);
   editor.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.KeyW, closeHandler);
   editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyW, closeHandler);
   editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyQ, closeHandler);
@@ -269,15 +274,27 @@ async function setupKeybindings(diffEditor, editor) {
 
 export function setupEditorCommands(diffEditor, originalEditor, modifiedEditor, container) {
   // Create close command for the close button
-  const closeCommand = createCloseCommand(container, diffEditor);
+  const closeCommand = createCloseCommand(diffEditor);
   
   // Set up focus handlers
   originalEditor.onDidFocusEditorWidget(() => {
     setupKeybindings(diffEditor, originalEditor);
+    window.currentFocusedModel = {
+      diffEditor,
+      modifiedEditor: modifiedEditor
+    };
+    // Dispatch a custom event that mobile navigation can listen to
+    window.dispatchEvent(new CustomEvent('custom:editor-focus-changed'));
   });
 
   modifiedEditor.onDidFocusEditorWidget(() => {
     setupKeybindings(diffEditor, modifiedEditor);
+    window.currentFocusedModel = {
+      diffEditor,
+      modifiedEditor: modifiedEditor
+    };
+    // Dispatch a custom event that mobile navigation can listen to
+    window.dispatchEvent(new CustomEvent('custom:editor-focus-changed'));
   });
 
   // Add change listener to track unsaved changes

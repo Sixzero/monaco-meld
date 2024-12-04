@@ -1,6 +1,6 @@
 import { setupEditorCommands, navigateToNextChange, updateWindowTitle, updateModelContent, acceptCurrentChange } from "./editor/commands.js";
 import { showStatusNotification, notifyWithFocus } from "./ui/notifications.js";
-import { apiBaseUrl, currentPort } from "./config.js";
+import { apiBaseUrl } from "./config.js";
 import { createEmptyState } from "./ui/emptyState.js";
 import { defineOneMonakaiTheme } from "./editor/theme.js";
 import { focusAndResizeEditor } from "./ui/functions.js";
@@ -11,8 +11,6 @@ import { isMobileWidth, createWidthWatcher, hasTouch } from './utils/browserDete
 import { SwipeHandler } from './utils/swipeHandler.js';
 import {createMobileNavigation} from './ui/mobileNavigation.js';
 import { getMonaco } from './utils/importHelpers.js';
-
-let monacoInstance = null;
 
 const isWeb = !window.electronAPI;
 const basePath = isWeb ? '' : '..';
@@ -111,10 +109,10 @@ function createDiffEditor(containerId, leftContent, rightContent, language, left
   container.appendChild(editorContainer);
   document.getElementById(containerId).appendChild(container);
 
-  const originalModel = monacoInstance.editor.createModel(leftContent, language);
-  const modifiedModel = monacoInstance.editor.createModel(rightContent, language);
+  const originalModel = monaco.editor.createModel(leftContent, language);
+  const modifiedModel = monaco.editor.createModel(rightContent, language);
 
-  const diffEditor = monacoInstance.editor.createDiffEditor(editorContainer, {
+  const diffEditor = monaco.editor.createDiffEditor(editorContainer, {
     theme: "one-monokai",
     automaticLayout: true,
     renderSideBySide: !isMobileWidth(), // Use width check instead
@@ -123,9 +121,9 @@ function createDiffEditor(containerId, leftContent, rightContent, language, left
     letterSpacing: isMobileWidth() ? 0.5 : 0,
     fontFamily: "'SF Mono', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
     fontWeight: isMobileWidth() ? '500' : '400',
-    originalEditable: false,
+    originalEditable: true,
     renderIndicators: false,
-    renderMarginRevertIcon: false,  // Changed from true to false to disable the revert arrow
+    renderMarginRevertIcon: false,
     ignoreTrimWhitespace: false,
     // Add these new options:
     overviewRulerBorder: false,          // Hide overview ruler border
@@ -230,25 +228,24 @@ function createDiffEditor(containerId, leftContent, rightContent, language, left
   }, 0);
 
   // Add swipe support for touch devices and mouse drag
-  const swipeHandler = new SwipeHandler(
-    container,
-    // Swipe left to reject
-    () => closeCommand({ preventDefault: () => {} }),
-    // Swipe right to accept
-    () => {
-      const currentLine = modifiedEditor.getPosition().lineNumber;
-      acceptCurrentChange(diffEditor, modifiedEditor);
-      // Move to next change after accepting
-      navigateToNextChange(diffEditor, modifiedEditor);
-    }
-  );
+  // const swipeHandler = new SwipeHandler(
+  //   container,
+  //   // Swipe left to reject
+  //   () => closeCommand({ preventDefault: () => {} }),
+  //   // Swipe right to accept
+  //   () => {
+  //     const currentLine = modifiedEditor.getPosition().lineNumber;
+  //     acceptCurrentChange(diffEditor, modifiedEditor);
+  //     // Move to next change after accepting
+  //     navigateToNextChange(diffEditor, modifiedEditor);
+  //   }
+  // );
 
+  
   // Add mobile navigation buttons
-  if (isMobileWidth()) {
-    const mobileNav = createMobileNavigation(diffEditor, modifiedEditor);
-    if (mobileNav) {
-      document.body.appendChild(mobileNav);
-    }
+  const mobileNav = createMobileNavigation();
+  if (mobileNav) {
+    container.appendChild(mobileNav);  // Append to container instead of body
   }
 
   return { diffEditor, originalModel, modifiedModel };
@@ -297,6 +294,20 @@ function setupEventSource() {
     try {
       const data = JSON.parse(event.data);
       
+      // Handle diff closed events
+      if (data.type === 'diffClosed') {
+        // Remove the diff from UI if it exists
+        const index = window.diffModels.findIndex(model => model.id === data.id);
+        if (index !== -1) {
+          const model = window.diffModels[index];
+          model.editor.dispose();
+          model.container.remove();
+          window.diffModels.splice(index, 1);
+          updateWindowTitle();
+        }
+        return;
+      }
+
       // Handle file change events
       if (data.type === 'fileChange') {
         // Update all diff editors that use this file
@@ -305,8 +316,8 @@ function setupEventSource() {
             const currentContent = model.original.getValue();
             // Only update if content actually changed
             if (currentContent !== data.content) {
-            updateModelContent(model, data.content)
-            showStatusNotification(`File ${basename(data.path)} was updated externally`, 'info');
+              updateModelContent(model, data.content)
+              showStatusNotification(`File ${basename(data.path)} was updated externally`, 'info');
             }
           }
         });
@@ -363,7 +374,8 @@ function setupEventSource() {
             getLanguageFromPath(diff.rightPath) || 
             'javascript',
             diff.leftPath,
-            diff.rightPath
+            diff.rightPath,
+            diff.id
           );
         }
       });
@@ -410,9 +422,9 @@ window.addEventListener("DOMContentLoaded", async () => {
   }, true); // Use capture phase to handle event before browser
   
   console.log("Loading Monaco...");
-  monacoInstance = await getMonaco();
+  await getMonaco();
   await defineOneMonakaiTheme();
-  monacoInstance.editor.setTheme('one-monokai');
+  monaco.editor.setTheme('one-monokai');
 
   try {
     const response = await fetch(`${apiBaseUrl}/diff`);
