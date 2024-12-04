@@ -26,6 +26,18 @@ function createAppMenu(win, diffHistory, closedDiffs) {
         { role: 'copy' },
         { role: 'paste' },
         { type: 'separator' },
+        {
+          label: 'Find',
+          accelerator: 'CmdOrCtrl+F',
+          click: () => {
+            win.webContents.executeJavaScript(`
+              if (window.currentFocusedModel?.diffEditor) {
+                window.currentFocusedModel.diffEditor.getModifiedEditor().trigger('', 'actions.find');
+              }
+            `);
+          }
+        },
+        { type: 'separator' },
         { role: 'selectAll' }
       ]
     },
