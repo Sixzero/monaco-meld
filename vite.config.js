@@ -6,7 +6,7 @@ export default defineConfig({
   root: './public',
   base: './',
   plugins: [
-    monacoEditorPlugin({
+    monacoEditorPlugin.default({
       languageWorkers: ['editorWorkerService', 'typescript', 'json', 'html'],
       customWorkers: []
     })
