@@ -18,13 +18,17 @@ export function showReadyStatus(container, diffEditor) {
   readyDiv.textContent = 'No more changes';
   container.appendChild(readyDiv);
 
-  // Update ready status when changes occur
+  let updateTimeout = null;  // Add timeout tracking
+
   const updateReadyStatus = () => {
-    // Need setTimeout because Monaco's diff computation is async
-    // and getLineChanges() might not reflect the latest state immediately
-    setTimeout(() => {
+    // Clear any pending update
+    if (updateTimeout) clearTimeout(updateTimeout);
+
+    // Set new timeout
+    updateTimeout = setTimeout(() => {
       const changes = diffEditor.getLineChanges();
       readyDiv.style.opacity = changes?.length ? '0' : '1';
+      updateTimeout = null;
     }, 200);
   };
 

@@ -49,7 +49,6 @@ function getLanguageFromPath(filePath) {
   return langMap[ext] || 'plaintext';
 }
 
-
 function createDiffEditor(containerId, leftContent, rightContent, language, leftPath, rightPath, diffId = null) {
   // Use the normalizer
   rightContent = normalizeContent(leftContent, rightContent);
@@ -181,8 +180,22 @@ function createDiffEditor(containerId, leftContent, rightContent, language, left
   
 
   // Add focus handlers to both editors
-  modifiedEditor.onDidFocusEditorWidget(() => expandEditor());
-  originalEditor.onDidFocusEditorWidget(() => expandEditor());
+  modifiedEditor.onDidFocusEditorWidget(() => {
+  window.currentFocusedModel = {
+    diffEditor,
+    modifiedEditor,
+    viewId: uniqueViewId  // Add viewId to track specific instance
+  };
+  expandEditor();
+});
+  originalEditor.onDidFocusEditorWidget(() => {
+  window.currentFocusedModel = {
+    diffEditor,
+    modifiedEditor,
+    viewId: uniqueViewId  // Add viewId to track specific instance
+  };
+  expandEditor();
+});
 
   // Setup editor commands
   const closeCommand = setupEditorCommands(
