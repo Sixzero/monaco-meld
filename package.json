@@ -2,7 +2,7 @@
   "name": "monacomeld",
   "version": "1.0.0",
   "type": "module",
-  "main": "src/main.js",
+  "main": "src/main.cjs",
   "license": "MIT",
   "author": {
     "name": "SixZero",

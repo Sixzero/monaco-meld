@@ -4,7 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const http = require('http');
 const url = require('url');
-const { createAppMenu } = require('./menu');
+const { createAppMenu } = require('./menu.cjs');
 const Store = require('electron-store'); // Add near the top with other requires
 
 // Near the top, after requires
@@ -138,7 +138,7 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       webSecurity: true,
-      preload: path.join(__dirname, 'preload.js')
+      preload: path.join(__dirname, 'preload.cjs')
     }
   });
 

@@ -24,7 +24,7 @@ else
     ELECTRON_PATH="$(which electron)"
 fi
 
-MAIN_PATH="$APP_PATH/src/main.js"
+MAIN_PATH="$APP_PATH/src/main.cjs"
 
 # Debug path resolution
 echo "Resolved paths:"
@@ -34,7 +34,7 @@ echo "MAIN_PATH: $MAIN_PATH"
 
 # Verify main.js exists
 if [ ! -f "$MAIN_PATH" ]; then
-    echo "Error: Cannot find main.js at $MAIN_PATH"
+    echo "Error: Cannot find main.cjs at $MAIN_PATH"
     exit 1
 fi
 
