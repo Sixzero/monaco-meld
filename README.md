@@ -68,7 +68,17 @@ monacomeld --no-server
 
 ## Installation
 
-### Option 1: Install Pre-built Package
+### Option 1: Quickest Installation
+```sh
+# Install electron globally first (required)
+npm install -g electron
+
+# Install dependencies and install globally
+npm install
+npm run install-global
+```
+
+### Option 2: Install Pre-built Package
 # Install electron globally first (required)
 ```
 npm install -g electron
