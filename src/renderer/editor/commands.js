@@ -216,19 +216,27 @@ async function setupKeybindings(diffEditor, editor) {
     monaco.KeyMod.Alt | monaco.KeyCode.UpArrow,
     () => navigateToPreviousChange(diffEditor, editor)
   );
-
+ // Ensure we have exactly one DiffOperation instance
+  const getOrCreateDiffOp = (diffEditor) => {
+    const index = window.diffModels.findIndex(model => 
+      model.editor === diffEditor
+    );
+    
+    if (index === -1) {
+      console.warn('No model found for editor');
+      return null;
+    }
+    
+    const model = window.diffModels[index];
+    const diffOp = new DiffOperation(model.original, model.modified);
+    return diffOp;
+  };
   // Undo command
   editor.addCommand(
     monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyZ,
     () => {
-      const index = window.diffModels.findIndex(model => 
-        model.editor === diffEditor
-      );
-      if (index !== -1) {
-        const model = window.diffModels[index];
-        const diffOp = new DiffOperation(model.original, model.modified);
-        diffOp.undoLastOperation();
-      }
+      const diffOp = getOrCreateDiffOp(diffEditor);
+      diffOp?.undoLastOperation();
     }
   );
 
