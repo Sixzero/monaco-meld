@@ -18,6 +18,17 @@ A drop in replacement for meld with monaco diff. A lightweight Electron based ap
   - Ctrl + ⬇︎: Switch to next editor
 - Syntax highlighting with Monaco
 
+## Installation
+
+```sh
+# Install electron globally first (required)
+npm install -g electron
+
+# Install dependencies and install globally
+npm install
+npm run install-global
+```
+
 ## Usage
 
 Basic file comparison:
@@ -61,48 +72,9 @@ curl -X POST http://localhost:3000/diff \
   }'
 ```
 
-To connect to an existing web server instead of starting a new one:
+To only start the UI in case you would want to connect to a remote server:
 ```
 monacomeld --no-server
-```
-
-## Installation
-
-### Option 1: Quickest Installation
-```sh
-# Install electron globally first (required)
-npm install -g electron
-
-# Install dependencies and install globally
-npm install
-npm run install-global
-```
-
-### Option 2: Install Pre-built Package
-# Install electron globally first (required)
-```
-npm install -g electron
-```
-
-# Install the pre-built package
-
-```
-npm install -g monacomeld-*.tgz
-```
-
-### Option 2: Build and Install from Source
-
-```sh
-# Clone the repository
-git clone https://github.com/SixZero/monaco-meld
-cd monaco-meld
-
-# Install dependencies and build
-npm install
-npm run build
-
-# Install globally from the built source
-npm install -g .
 ```
 
 ### Requirements
