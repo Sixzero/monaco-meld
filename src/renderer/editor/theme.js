@@ -133,12 +133,12 @@ export async function defineOneMonakaiTheme() {
       // Diff editor specific - Updated with slightly toned down colors and 45% opacity
       'diffEditor.insertedTextBackground': '#2d992d73',  
       'diffEditor.removedTextBackground': '#cc353573',   
-      'diffEditor.insertedLineBackground': '#2d992d18',  
-      'diffEditor.removedLineBackground': '#cc353518',   
+      'diffEditor.insertedLineBackground': '#2d992d24',  
+      'diffEditor.removedLineBackground': '#cc353524',   
       'diffEditor.diagonalFill': '#282C34',
       'diffEditor.border': '#181A1F',
-      'diffEditorGutter.insertedLineBackground': '#2db52c18',  
-      'diffEditorGutter.removedLineBackground': '#e6404018',   
+      'diffEditorGutter.insertedLineBackground': '#2db52c24',  
+      'diffEditorGutter.removedLineBackground': '#e6404024',   
       'diffEditorOverview.insertedForeground': '#2db52c',      
       'diffEditorOverview.removedForeground': '#e64040',       
       
