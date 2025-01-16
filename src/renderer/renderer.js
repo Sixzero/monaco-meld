@@ -57,9 +57,13 @@ function createDiffEditor(containerId, leftContent, rightContent, language, left
   container.style.minHeight = '100px';
   container.style.maxHeight = '80vh';
   container.style.height = '200px';
-  container.style.marginBottom = '30px';
+  container.style.marginBottom = '20px';  // Single spacing between items
   container.style.border = '1px solid #454545';
-  container.style.transition = 'height 0.3s ease';
+  container.style.backgroundColor = '#1e1e1e';
+  // Remove unnecessary styles
+  container.style.overflow = 'hidden';
+  container.style.display = 'flex';
+  container.style.flexDirection = 'column';
   
   const titleBar = document.createElement('div');
   titleBar.style.padding = '5px 10px';
@@ -102,7 +106,9 @@ function createDiffEditor(containerId, leftContent, rightContent, language, left
   titleBar.appendChild(closeButton);
   
   const editorContainer = document.createElement('div');
-  editorContainer.style.height = '100%';
+  editorContainer.style.height = 'calc(100% - 31px)';  // Subtract titleBar height
+  editorContainer.style.position = 'relative';  // Contain absolute children
+  editorContainer.style.overflow = 'hidden';    // Prevent overflow
   
   container.appendChild(titleBar);
   container.appendChild(editorContainer);
