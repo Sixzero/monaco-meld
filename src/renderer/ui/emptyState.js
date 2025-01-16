@@ -1,4 +1,4 @@
-import { sampleText1, sampleText2 } from "../samples.js";
+import { samples } from "../samples.js";
 import { apiBaseUrl } from '../config.js';
 
 export function createEmptyState(container, createDiffEditor) {
@@ -76,15 +76,19 @@ curl -X POST ${apiBaseUrl}/diff \\
   button.onmouseout = () => button.style.background = '#2d2d2d';
   
   button.onclick = () => {
-    wrapper.remove(); // Remove the wrapper instead of individual elements
-    createDiffEditor(
-      'container',
-      sampleText1,
-      sampleText2,
-      'javascript',
-      'sample1.js',
-      'sample2.js'
-    );
+    wrapper.remove();
+    // Load all sample diffs using the getLanguageFromPath from renderer
+    samples.forEach(sample => {
+      // Use the parent's createDiffEditor which already has getLanguageFromPath in scope
+      createDiffEditor(
+        'container',
+        sample.left,
+        sample.right,
+        sample.leftPath || '',  // Language will be determined inside createDiffEditor
+        sample.leftPath,
+        sample.rightPath
+      );
+    });
   };
   
   // Append elements to wrapper first
