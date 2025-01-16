@@ -186,22 +186,29 @@ function createDiffEditor(containerId, leftContent, rightContent, language, left
   
 
   // Add focus handlers to both editors
+  // Generate unique ID for this editor instance
+  const viewId = diffId || Math.random().toString(36).substr(2, 9);
+  
+  // Add focus handlers to both editors
   modifiedEditor.onDidFocusEditorWidget(() => {
-  window.currentFocusedModel = {
-    diffEditor,
-    modifiedEditor,
-    viewId: uniqueViewId  // Add viewId to track specific instance
-  };
-  expandEditor();
-});
+    window.currentFocusedModel = {
+      diffEditor,
+      modifiedEditor,
+      container,
+      viewId
+    };
+    expandEditor();
+  });
+
   originalEditor.onDidFocusEditorWidget(() => {
-  window.currentFocusedModel = {
-    diffEditor,
-    modifiedEditor,
-    viewId: uniqueViewId  // Add viewId to track specific instance
-  };
-  expandEditor();
-});
+    window.currentFocusedModel = {
+      diffEditor,
+      modifiedEditor,
+      container,
+      viewId
+    };
+    expandEditor();
+  });
 
   // Setup editor commands
   const closeCommand = setupEditorCommands(

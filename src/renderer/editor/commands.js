@@ -337,11 +337,35 @@ export function navigateToNextChange(diffEditor, editorView) {
   );
 
   if (nextChange) {
+    // Found next change in current diff
     editorView.setPosition({
       lineNumber: nextChange.modifiedStartLineNumber,
       column: 1,
     });
     editorView.revealLineInCenter(nextChange.modifiedStartLineNumber);
+  } else {
+    // No more changes in current diff, try to move to next diff
+    const currentIndex = window.diffModels.findIndex(model => 
+      model.editor === diffEditor
+    );
+    
+    if (currentIndex < window.diffModels.length - 1) {
+      // There is a next diff
+      const nextModel = window.diffModels[currentIndex + 1];
+      const nextModifiedEditor = nextModel.editor.getModifiedEditor();
+      const nextChanges = nextModel.editor.getLineChanges();
+      
+      if (nextChanges?.length > 0) {
+        // Focus the next diff
+        focusAndResizeEditor(nextModel);
+        // Go to first change
+        nextModifiedEditor.setPosition({
+          lineNumber: nextChanges[0].modifiedStartLineNumber,
+          column: 1
+        });
+        nextModifiedEditor.revealLineInCenter(nextChanges[0].modifiedStartLineNumber);
+      }
+    }
   }
 }
 
@@ -353,11 +377,36 @@ export function navigateToPreviousChange(diffEditor, modifiedEditor) {
     .find((change) => change.modifiedStartLineNumber < currentLine);
 
   if (prevChange) {
+    // Found previous change in current diff
     modifiedEditor.setPosition({
       lineNumber: prevChange.modifiedStartLineNumber,
       column: 1,
     });
     modifiedEditor.revealLineInCenter(prevChange.modifiedStartLineNumber);
+  } else {
+    // No more changes in current diff, try to move to previous diff
+    const currentIndex = window.diffModels.findIndex(model => 
+      model.editor === diffEditor
+    );
+    
+    if (currentIndex > 0) {
+      // There is a previous diff
+      const prevModel = window.diffModels[currentIndex - 1];
+      const prevModifiedEditor = prevModel.editor.getModifiedEditor();
+      const prevChanges = prevModel.editor.getLineChanges();
+      
+      if (prevChanges?.length > 0) {
+        // Focus the previous diff
+        focusAndResizeEditor(prevModel);
+        // Go to last change
+        const lastChange = prevChanges[prevChanges.length - 1];
+        prevModifiedEditor.setPosition({
+          lineNumber: lastChange.modifiedStartLineNumber,
+          column: 1
+        });
+        prevModifiedEditor.revealLineInCenter(lastChange.modifiedStartLineNumber);
+      }
+    }
   }
 }
 
