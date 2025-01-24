@@ -16,7 +16,7 @@
     "start:example:test": "bash -c 'electron . ./examples/file1.js <(echo \"modified content\")'",
     "start:debug": "electron .",
     "build": "electron-builder build && npm pack && echo '\nTo install globally, run: npm install -g monacomeld-*.tgz'",
-    "install-global": "npm run build && npm install -g .",
+    "install-global": "npm run build && npm install -g . && ./bin/install-desktop-entry.sh",
     "start:web_old": "PORT=3000 electron . --web",
     "start:web": "vite",
     "start:client": "electron . --no-server",
@@ -85,7 +85,7 @@
     "monaco-editor": "^0.52.0"
   },
   "bin": {
-    "monacomeld": "./bin/monacomeld"
+    "monacomeld": "./bin/monacomeld.sh"
   },
   "peerDependencies": {
     "electron": "^33.0.2"

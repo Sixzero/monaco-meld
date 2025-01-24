@@ -8,22 +8,19 @@ if [[ $SCRIPT_DIR == *"/.nvm/"* ]]; then
     # NVM installation
     NVM_DIR=$(dirname $SCRIPT_DIR)
     APP_PATH="$NVM_DIR/lib/node_modules/monacomeld"
-    ELECTRON_PATH="$(which electron)"
 elif [[ $SCRIPT_DIR == *"node_modules/.bin"* ]]; then
     # Global npm installation
     NODE_ROOT=$(dirname $(dirname $(dirname $SCRIPT_DIR)))
     APP_PATH="$NODE_ROOT/lib/node_modules/monacomeld"
-    ELECTRON_PATH="$(which electron)"
 elif [[ $SCRIPT_DIR == *"node_modules"* ]]; then
     # Local npm installation
     APP_PATH="$SCRIPT_DIR/../"
-    ELECTRON_PATH="$(which electron)"
 else
     # Development
     APP_PATH="$SCRIPT_DIR/../lib/node_modules/monacomeld"
-    ELECTRON_PATH="$(which electron)"
 fi
 
+ELECTRON_PATH="$(which electron)"
 MAIN_PATH="$APP_PATH/src/main.cjs"
 
 # Debug path resolution
