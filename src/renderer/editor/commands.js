@@ -154,22 +154,37 @@ async function cleanupDiff(model, diffEditor, index) {
     }
   }
 
-  // Cleanup resources
-  diffEditor.dispose();
-  window.diffModels.splice(index, 1);
-  model.container.remove();
-  model.original.dispose();
+  // Clear any references in currentFocusedModel
+  if (window.currentFocusedModel?.diffEditor === diffEditor) {
+    window.currentFocusedModel = null;
+  }
+
+  // Dispose content listeners if they exist
+  model.contentListeners?.forEach(disposable => disposable.dispose());
+
+  // Cleanup resources in correct order
+  window.diffModels.splice(index, 1); // Remove from array first
+  model.container.remove(); // Remove DOM element
+  model.original.dispose(); // Dispose models
   model.modified.dispose();
+  diffEditor.dispose(); // Dispose editor last
   
   updateWindowTitle();
 
-  // Handle focus
+  // Handle focus after cleanup
   if (window.diffModels.length > 0) {
     const nextIndex = Math.min(index, window.diffModels.length - 1);
     const nextModel = window.diffModels[nextIndex];
-    const nextModifiedEditor = focusAndResizeEditor(nextModel);
-    
-    setTimeout(() => setupKeybindings(nextModel.editor, nextModifiedEditor), 0);
+    if (nextModel) {
+      const nextModifiedEditor = focusAndResizeEditor(nextModel);
+      setTimeout(() => {
+        if (nextModel.editor) { // Check if editor still exists
+          setupKeybindings(nextModel.editor, nextModifiedEditor);
+          // Dispatch focus change event
+          window.dispatchEvent(new CustomEvent('custom:editor-focus-changed'));
+        }
+      }, 0);
+    }
   }
 }
 

@@ -126,9 +126,13 @@ export function createMobileNavigation() {
   // Update button state when content changes
   function setupButtonStateListeners() {
     window.diffModels.forEach(model => {
-      model.original.onDidChangeContent(updateAcceptButton);
-      model.modified.onDidChangeContent(updateAcceptButton);
-      // Removed redundant focus listeners
+      // Store disposables on the model for cleanup
+      if (!model.contentListeners) {
+        model.contentListeners = [
+          model.original.onDidChangeContent(updateAcceptButton),
+          model.modified.onDidChangeContent(updateAcceptButton)
+        ];
+      }
     });
   }
 
