@@ -230,7 +230,8 @@ function createDiffEditor(containerId, leftContent, rightContent, language, left
     path: leftPath,
     initialContent: leftContent,
     container: container,
-    id: diffId
+    id: diffId,
+    state: "active" // Add initial state
   });
 
   // Update window title
@@ -276,6 +277,7 @@ function createDiffEditor(containerId, leftContent, rightContent, language, left
 
   return { diffEditor, originalModel, modifiedModel };
 }
+window.createDiffEditor = createDiffEditor;
 
 
 async function saveContent(content, editor, filePath) {
@@ -322,15 +324,18 @@ function setupEventSource() {
       
       // Handle diff closed events
       if (data.type === 'diffClosed') {
+        console.log('Before removal - diffModels:', window.diffModels.length, 'Container children:', document.getElementById('container').children.length);
         // Remove the diff from UI if it exists
         const index = window.diffModels.findIndex(model => model.id === data.id);
+        console.log('data.type:', data.type, 'index:', index)
         if (index !== -1) {
           const model = window.diffModels[index];
-          model.editor.dispose();
-          model.container.remove();
           window.diffModels.splice(index, 1);
+          model.container.remove();
+          model.editor.dispose();
           updateWindowTitle();
         }
+        console.log('After removal - diffModels:', window.diffModels.length, 'Container children:', document.getElementById('container').children.length);
         return;
       }
 
@@ -338,13 +343,16 @@ function setupEventSource() {
       if (data.type === 'fileChange') {
         // Update all diff editors that use this file
         window.diffModels.forEach(model => {
-          if (model.path === data.path) {
-            const currentContent = model.original.getValue();
-            // Only update if content actually changed
-            if (currentContent !== data.content) {
-              updateModelContent(model, data.content)
-              showStatusNotification(`File ${basename(data.path)} was updated externally`, 'info');
-            }
+          // Skip models that are being closed or removed
+          if (model.state !== "active" || model.path !== data.path) {
+            return;
+          }
+    
+          const currentContent = model.original.getValue();
+          // Only update if content actually changed
+          if (currentContent !== data.content) {
+            updateModelContent(model, data.content)
+            showStatusNotification(`File ${basename(data.path)} was updated externally`, 'info');
           }
         });
         return;

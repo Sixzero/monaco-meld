@@ -3,6 +3,7 @@ import { apiBaseUrl } from '../config.js';
 import { showStatusNotification } from "../ui/notifications.js";
 import { focusAndResizeEditor } from '../ui/functions.js';
 import { getMonaco } from '../utils/importHelpers.js';
+import { createEmptyState } from "../ui/emptyState.js";
 
 // Add save helper function
 async function saveFile(model) {
@@ -112,6 +113,9 @@ export function createCloseCommand(diffEditor) {
     if (index === -1) return false;
 
     const model = window.diffModels[index];
+    // Set the model state to "closing" to prevent file change updates
+    model.state = "closing";
+    
     const state = new DiffModelState(model, diffEditor);
     
     // Handle closing based on state
@@ -121,15 +125,28 @@ export function createCloseCommand(diffEditor) {
         ['Save', 'Close Without Saving', 'Cancel']
       );
       
-      if (result === 0 && !await saveFile(model)) return false; // Save failed
-      if (result === 2) return false; // Cancelled
+      if (result === 0 && !await saveFile(model)) {
+        // If save failed, reset the state
+        model.state = "active";
+        return false;
+      }
+      
+      if (result === 2) {
+        // User cancelled, reset the state
+        model.state = "active";
+        return false;
+      }
     } else if (state.hasUnmergedChanges()) {
       const result = await showCloseDialog(
         'There are unmerged diffs. Are you sure you want to close?',
         ['Close', 'Cancel']
       );
       
-      if (result === 1) return false; // Cancelled
+      if (result === 1) {
+        // User cancelled, reset the state
+        model.state = "active";
+        return false;
+      }
     }
 
     // Clean up the diff
@@ -140,10 +157,13 @@ export function createCloseCommand(diffEditor) {
 
 // Separate cleanup logic (Single Responsibility)
 async function cleanupDiff(model, diffEditor, index) {
+  console.log('cleanupDiff called - diffModels:', window.diffModels.length, 'Container children:', document.getElementById('container').children.length);
+  model.state = "removing";
+
   if (model.id) {
     try {
-      console.log('`${apiBaseUrl}/diff/${model.id}`:', `${apiBaseUrl}/diff/${model.id}`)
-      const response = await fetch(`${apiBaseUrl}/diff/${model.id}`, {  // Use apiBaseUrl
+      console.log('Deleting diff with id:', model.id);
+      const response = await fetch(`${apiBaseUrl}/diff/${model.id}`, {
         method: 'DELETE'
       });
       if (!response.ok) {
@@ -159,20 +179,33 @@ async function cleanupDiff(model, diffEditor, index) {
     window.currentFocusedModel = null;
   }
 
+  // Cleanup resources in correct order
+  window.diffModels.splice(index, 1); // Remove from array first
+
   // Dispose content listeners if they exist
   model.contentListeners?.forEach(disposable => disposable.dispose());
 
-  // Cleanup resources in correct order
-  window.diffModels.splice(index, 1); // Remove from array first
-  model.container.remove(); // Remove DOM element
-  model.original.dispose(); // Dispose models
+  // First clear the diff editor model to prevent the disposed model error
+  diffEditor.setModel(null);
+  
+  // Then dispose the editor
+  diffEditor.dispose();
+  
+  // Then dispose models
+  model.original.dispose();
   model.modified.dispose();
-  diffEditor.dispose(); // Dispose editor last
+  
+  // Finally remove the DOM element
+  model.container.remove();
   
   updateWindowTitle();
 
-  // Handle focus after cleanup
-  if (window.diffModels.length > 0) {
+  // Show empty state if no more diffs
+  if (window.diffModels.length === 0) {
+    const container = document.getElementById('container');
+    createEmptyState(container, window.createDiffEditor);
+  } else {
+    // Handle focus after cleanup
     const nextIndex = Math.min(index, window.diffModels.length - 1);
     const nextModel = window.diffModels[nextIndex];
     if (nextModel) {
@@ -186,6 +219,9 @@ async function cleanupDiff(model, diffEditor, index) {
       }, 0);
     }
   }
+  console.log('window.diffModels:', window.diffModels)
+  // Add debug logging after cleanup
+  console.log('After cleanupDiff - diffModels:', window.diffModels.length, 'Container children:', document.getElementById('container').children.length);
 }
 
 // Update setupKeybindings function
