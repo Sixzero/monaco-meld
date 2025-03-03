@@ -1,6 +1,10 @@
 import { samples } from "../samples.js";
 import { apiBaseUrl } from '../config.js';
 
+// Initialize version
+let APP_VERSION = window.electronAPI.getAppVersion?.() || '???'; // Default fallback
+
+
 export function createEmptyState(container, createDiffEditor) {
   // Create wrapper div to contain all elements
   const wrapper = document.createElement('div');
@@ -8,6 +12,7 @@ export function createEmptyState(container, createDiffEditor) {
     padding: 20px;
     height: calc(100% - 40px);
     overflow: auto;
+    position: relative;
   `;
   
   // Create message element
@@ -91,10 +96,24 @@ curl -X POST ${apiBaseUrl}/diff \\
     });
   };
   
+  // Add version number at the bottom right
+  const versionInfo = document.createElement('div');
+  versionInfo.textContent = `v${APP_VERSION}`; // Use the version from package.json
+  versionInfo.style.cssText = `
+    position: absolute;
+    bottom: 10px;
+    right: 15px;
+    font-size: 12px;
+    color: #6a737d;
+    opacity: 0.7;
+    font-family: system-ui, -apple-system, sans-serif;
+  `;
+  
   // Append elements to wrapper first
   wrapper.appendChild(messageDiv);
   wrapper.appendChild(helpDiv);
   wrapper.appendChild(button);
+  wrapper.appendChild(versionInfo);
   
   // Then append wrapper to container
   container.appendChild(wrapper);
