@@ -4,8 +4,20 @@ const path = require('path');
 const fs = require('fs');
 const http = require('http');
 const url = require('url');
+const Store = require('electron-store');
 const { createAppMenu } = require('./menu.cjs');
-const Store = require('electron-store'); // Add near the top with other requires
+
+// Add handler for app version request
+ipcMain.handle('get-app-version', () => {
+  try {
+    const packagePath = path.join(APP_PATH, 'package.json');
+    const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+    return packageJson.version;
+  } catch (error) {
+    console.error('Error reading package.json:', error);
+    return '0.0.0';
+  }
+});
 
 // Near the top, after requires
 const APP_PATH = process.env.APP_PATH || path.join(__dirname, '..');

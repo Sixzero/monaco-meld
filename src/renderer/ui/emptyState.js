@@ -1,9 +1,22 @@
 import { samples } from "../samples.js";
 import { apiBaseUrl } from '../config.js';
 
-// Initialize version
-let APP_VERSION = window.electronAPI.getAppVersion?.() || '???'; // Default fallback
+// Initialize version with a placeholder, will be updated asynchronously
+let APP_VERSION = '...';
 
+// Immediately fetch the version when this module loads
+if (window.electronAPI?.getAppVersion) {
+  window.electronAPI.getAppVersion().then(version => {
+    APP_VERSION = version;
+    // Update any existing version elements
+    document.querySelectorAll('.app-version-display').forEach(el => {
+      el.textContent = `v${version}`;
+    });
+  }).catch(err => {
+    console.error('Failed to get app version:', err);
+    APP_VERSION = '???';
+  });
+}
 
 export function createEmptyState(container, createDiffEditor) {
   // Create wrapper div to contain all elements

@@ -18,7 +18,7 @@ contextBridge.exposeInMainWorld(
     focusWindow: () => ipcRenderer.invoke('focus-window'),
     showSaveDialog: (options) => ipcRenderer.invoke('show-save-dialog', options),
     
-    // Add method to get app version from package.json
-    // getAppVersion: () => get version
+    // Add method to get app version from package.json via IPC
+    getAppVersion: () => ipcRenderer.invoke('get-app-version')
   }
 );
